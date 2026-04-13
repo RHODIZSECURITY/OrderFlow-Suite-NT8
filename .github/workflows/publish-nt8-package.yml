@@ -51,6 +51,11 @@ jobs:
               }
             }
 
+      - name: Recreate latest tag at current commit
+        run: |
+          git tag -f latest "${GITHUB_SHA}"
+          git push origin refs/tags/latest --force
+
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
