@@ -21,13 +21,16 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		{
 			if (State == State.SetDefaults)
 			{
-				Description = @"Soportes y resistencias automáticas basadas en Swing.";
+				Description = @"Soportes y resistencias automáticas basadas en Swing, pintadas como zona.";
 				Name = "Support Resistance";
 				Calculate = Calculate.OnBarClose;
 				IsOverlay = true;
 				Strength = 5;
 				SupportColor = Brushes.DodgerBlue;
 				ResistanceColor = Brushes.Crimson;
+				ZoneTicks = 8;
+				ForwardBars = 120;
+				Opacity = 20;
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -44,9 +47,18 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 			double sLow = swing.SwingLow[0];
 
 			if (sHigh > 0)
-				Draw.HorizontalLine(this, "RES_" + CurrentBar, sHigh, ResistanceColor);
+			{
+				double resTop = sHigh + (ZoneTicks * TickSize * 0.5);
+				double resBot = sHigh - (ZoneTicks * TickSize * 0.5);
+				Draw.Rectangle(this, "RES_ZONE_" + CurrentBar, false, 0, resTop, -ForwardBars, resBot, ResistanceColor, ResistanceColor, Opacity);
+			}
+
 			if (sLow > 0)
-				Draw.HorizontalLine(this, "SUP_" + CurrentBar, sLow, SupportColor);
+			{
+				double supTop = sLow + (ZoneTicks * TickSize * 0.5);
+				double supBot = sLow - (ZoneTicks * TickSize * 0.5);
+				Draw.Rectangle(this, "SUP_ZONE_" + CurrentBar, false, 0, supTop, -ForwardBars, supBot, SupportColor, SupportColor, Opacity);
+			}
 		}
 
 		#region Properties
@@ -55,14 +67,30 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		[Display(Name = "Swing strength", GroupName = "S/R", Order = 0)]
 		public int Strength { get; set; }
 
+
+		[NinjaScriptProperty]
+		[Range(2, 100)]
+		[Display(Name = "Zone ticks", GroupName = "S/R", Order = 1)]
+		public int ZoneTicks { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(5, 500)]
+		[Display(Name = "Forward bars", GroupName = "S/R", Order = 2)]
+		public int ForwardBars { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(0, 100)]
+		[Display(Name = "Opacity %", GroupName = "S/R", Order = 3)]
+		public int Opacity { get; set; }
+
 		[XmlIgnore]
-		[Display(Name = "Support color", GroupName = "S/R", Order = 1)]
+		[Display(Name = "Support color", GroupName = "S/R", Order = 4)]
 		public Brush SupportColor { get; set; }
 		[Browsable(false)]
 		public string SupportColorSerializable { get { return NinjaTrader.Gui.Tools.Serialize.BrushToString(SupportColor); } set { SupportColor = NinjaTrader.Gui.Tools.Serialize.StringToBrush(value); } }
 
 		[XmlIgnore]
-		[Display(Name = "Resistance color", GroupName = "S/R", Order = 2)]
+		[Display(Name = "Resistance color", GroupName = "S/R", Order = 5)]
 		public Brush ResistanceColor { get; set; }
 		[Browsable(false)]
 		public string ResistanceColorSerializable { get { return NinjaTrader.Gui.Tools.Serialize.BrushToString(ResistanceColor); } set { ResistanceColor = NinjaTrader.Gui.Tools.Serialize.StringToBrush(value); } }

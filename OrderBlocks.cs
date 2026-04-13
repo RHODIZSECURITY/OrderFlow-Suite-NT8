@@ -40,14 +40,14 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 
 			if (bullishImpulse)
 			{
-				double top = Math.Max(Open[1], Close[1]);
-				double bot = Math.Min(Open[1], Close[1]);
+				double top = High[1];
+				double bot = Low[1];
 				Draw.Rectangle(this, "OB_BULL_" + CurrentBar, false, 1, top, -ForwardBars, bot, BullColor, BullColor, Opacity);
 			}
 			else if (bearishImpulse)
 			{
-				double top = Math.Max(Open[1], Close[1]);
-				double bot = Math.Min(Open[1], Close[1]);
+				double top = High[1];
+				double bot = Low[1];
 				Draw.Rectangle(this, "OB_BEAR_" + CurrentBar, false, 1, top, -ForwardBars, bot, BearColor, BearColor, Opacity);
 			}
 		}
