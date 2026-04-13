@@ -29,29 +29,31 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const tag = "OrderFlow-Suite-NT8";
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            const tagsToDelete = ["latest", "OrderFlow-Suite-NT8"];
 
-            try {
-              const release = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
-              core.info(`Deleting existing release id=${release.data.id} tag=${tag}`);
-              await github.rest.repos.deleteRelease({ owner, repo, release_id: release.data.id });
-            } catch (error) {
-              core.info(`No previous release found for tag ${tag}`);
-            }
+            for (const tag of tagsToDelete) {
+              try {
+                const release = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+                core.info(`Deleting existing release id=${release.data.id} tag=${tag}`);
+                await github.rest.repos.deleteRelease({ owner, repo, release_id: release.data.id });
+              } catch (error) {
+                core.info(`No previous release found for tag ${tag}`);
+              }
 
-            try {
-              await github.rest.git.deleteRef({ owner, repo, ref: `tags/${tag}` });
-              core.info(`Deleted previous tag ${tag}`);
-            } catch (error) {
-              core.info(`No previous tag found for ${tag}`);
+              try {
+                await github.rest.git.deleteRef({ owner, repo, ref: `tags/${tag}` });
+                core.info(`Deleted previous tag ${tag}`);
+              } catch (error) {
+                core.info(`No previous tag found for ${tag}`);
+              }
             }
 
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          tag: OrderFlow-Suite-NT8
+          tag: latest
           name: OrderFlow-Suite-NT8
           allowUpdates: false
           makeLatest: true
