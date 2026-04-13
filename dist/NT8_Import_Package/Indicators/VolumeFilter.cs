@@ -46,7 +46,7 @@ public static class __VolumeFilterProperties{
 	}
 }
 
-namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 {
 	public class VolumeFilter : Indicator
 	{
@@ -604,19 +604,19 @@ namespace NinjaTrader.NinjaScript.Indicators
 {
 	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
 	{
-		private OrderFlow_Suite_RHODIZ.VolumeFilter[] cacheVolumeFilter;
-		public OrderFlow_Suite_RHODIZ.VolumeFilter VolumeFilter(__VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
+		private OrderFlow_Suite_RHODIZ_v1_0_0.VolumeFilter[] cacheVolumeFilter;
+		public OrderFlow_Suite_RHODIZ_v1_0_0.VolumeFilter VolumeFilter(__VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
 		{
 			return VolumeFilter(Input, _formula, _minVolumeFilter, _geometry, _fillGeometry, _geometryAggresiveLevel, _outlineOpacity, _textFont, _showText, _minFontWidth, _minFontHeight, _askTextOpacity, _bidTextOpacity, _totalTextOpacity);
 		}
 
-		public OrderFlow_Suite_RHODIZ.VolumeFilter VolumeFilter(ISeries<double> input, __VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
+		public OrderFlow_Suite_RHODIZ_v1_0_0.VolumeFilter VolumeFilter(ISeries<double> input, __VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
 		{
 			if (cacheVolumeFilter != null)
 				for (int idx = 0; idx < cacheVolumeFilter.Length; idx++)
 					if (cacheVolumeFilter[idx] != null && cacheVolumeFilter[idx]._Formula == _formula && cacheVolumeFilter[idx]._MinVolumeFilter == _minVolumeFilter && cacheVolumeFilter[idx]._Geometry == _geometry && cacheVolumeFilter[idx]._FillGeometry == _fillGeometry && cacheVolumeFilter[idx]._GeometryAggresiveLevel == _geometryAggresiveLevel && cacheVolumeFilter[idx]._OutlineOpacity == _outlineOpacity && cacheVolumeFilter[idx]._TextFont == _textFont && cacheVolumeFilter[idx]._ShowText == _showText && cacheVolumeFilter[idx]._MinFontWidth == _minFontWidth && cacheVolumeFilter[idx]._MinFontHeight == _minFontHeight && cacheVolumeFilter[idx]._AskTextOpacity == _askTextOpacity && cacheVolumeFilter[idx]._BidTextOpacity == _bidTextOpacity && cacheVolumeFilter[idx]._TotalTextOpacity == _totalTextOpacity && cacheVolumeFilter[idx].EqualsInput(input))
 						return cacheVolumeFilter[idx];
-			return CacheIndicator<OrderFlow_Suite_RHODIZ.VolumeFilter>(new OrderFlow_Suite_RHODIZ.VolumeFilter(){ _Formula = _formula, _MinVolumeFilter = _minVolumeFilter, _Geometry = _geometry, _FillGeometry = _fillGeometry, _GeometryAggresiveLevel = _geometryAggresiveLevel, _OutlineOpacity = _outlineOpacity, _TextFont = _textFont, _ShowText = _showText, _MinFontWidth = _minFontWidth, _MinFontHeight = _minFontHeight, _AskTextOpacity = _askTextOpacity, _BidTextOpacity = _bidTextOpacity, _TotalTextOpacity = _totalTextOpacity }, input, ref cacheVolumeFilter);
+			return CacheIndicator<OrderFlow_Suite_RHODIZ_v1_0_0.VolumeFilter>(new OrderFlow_Suite_RHODIZ_v1_0_0.VolumeFilter(){ _Formula = _formula, _MinVolumeFilter = _minVolumeFilter, _Geometry = _geometry, _FillGeometry = _fillGeometry, _GeometryAggresiveLevel = _geometryAggresiveLevel, _OutlineOpacity = _outlineOpacity, _TextFont = _textFont, _ShowText = _showText, _MinFontWidth = _minFontWidth, _MinFontHeight = _minFontHeight, _AskTextOpacity = _askTextOpacity, _BidTextOpacity = _bidTextOpacity, _TotalTextOpacity = _totalTextOpacity }, input, ref cacheVolumeFilter);
 		}
 	}
 }
@@ -625,12 +625,12 @@ namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
 {
 	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
 	{
-		public Indicators.OrderFlow_Suite_RHODIZ.VolumeFilter VolumeFilter(__VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.VolumeFilter VolumeFilter(__VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
 		{
 			return indicator.VolumeFilter(Input, _formula, _minVolumeFilter, _geometry, _fillGeometry, _geometryAggresiveLevel, _outlineOpacity, _textFont, _showText, _minFontWidth, _minFontHeight, _askTextOpacity, _bidTextOpacity, _totalTextOpacity);
 		}
 
-		public Indicators.OrderFlow_Suite_RHODIZ.VolumeFilter VolumeFilter(ISeries<double> input , __VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.VolumeFilter VolumeFilter(ISeries<double> input , __VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
 		{
 			return indicator.VolumeFilter(input, _formula, _minVolumeFilter, _geometry, _fillGeometry, _geometryAggresiveLevel, _outlineOpacity, _textFont, _showText, _minFontWidth, _minFontHeight, _askTextOpacity, _bidTextOpacity, _totalTextOpacity);
 		}
@@ -641,12 +641,12 @@ namespace NinjaTrader.NinjaScript.Strategies
 {
 	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
 	{
-		public Indicators.OrderFlow_Suite_RHODIZ.VolumeFilter VolumeFilter(__VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.VolumeFilter VolumeFilter(__VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
 		{
 			return indicator.VolumeFilter(Input, _formula, _minVolumeFilter, _geometry, _fillGeometry, _geometryAggresiveLevel, _outlineOpacity, _textFont, _showText, _minFontWidth, _minFontHeight, _askTextOpacity, _bidTextOpacity, _totalTextOpacity);
 		}
 
-		public Indicators.OrderFlow_Suite_RHODIZ.VolumeFilter VolumeFilter(ISeries<double> input , __VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.VolumeFilter VolumeFilter(ISeries<double> input , __VolumeFilterProperties.Formula _formula, long _minVolumeFilter, __VolumeFilterProperties.Geometry _geometry, bool _fillGeometry, int _geometryAggresiveLevel, float _outlineOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, float _askTextOpacity, float _bidTextOpacity, float _totalTextOpacity)
 		{
 			return indicator.VolumeFilter(input, _formula, _minVolumeFilter, _geometry, _fillGeometry, _geometryAggresiveLevel, _outlineOpacity, _textFont, _showText, _minFontWidth, _minFontHeight, _askTextOpacity, _bidTextOpacity, _totalTextOpacity);
 		}
