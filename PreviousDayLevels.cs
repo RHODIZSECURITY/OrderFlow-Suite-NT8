@@ -9,6 +9,7 @@ using System.Xml.Serialization;
 using NinjaTrader.Data;
 using NinjaTrader.Gui.Tools;
 using NinjaTrader.NinjaScript;
+using Serialize = NinjaTrader.NinjaScript.Serialize;
 using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
@@ -71,13 +72,13 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		[Display(Name = "High color", GroupName = "Previous Day Levels", Order = 1)]
 		public Brush HighColor { get; set; }
 		[Browsable(false)]
-		public string HighColorSerializable { get { return NinjaTrader.Gui.Tools.Serialize.BrushToString(HighColor); } set { HighColor = NinjaTrader.Gui.Tools.Serialize.StringToBrush(value); } }
+		public string HighColorSerializable { get { return Serialize.BrushToString(HighColor); } set { HighColor = Serialize.StringToBrush(value); } }
 
 		[XmlIgnore]
 		[Display(Name = "Low color", GroupName = "Previous Day Levels", Order = 2)]
 		public Brush LowColor { get; set; }
 		[Browsable(false)]
-		public string LowColorSerializable { get { return NinjaTrader.Gui.Tools.Serialize.BrushToString(LowColor); } set { LowColor = NinjaTrader.Gui.Tools.Serialize.StringToBrush(value); } }
+		public string LowColorSerializable { get { return Serialize.BrushToString(LowColor); } set { LowColor = Serialize.StringToBrush(value); } }
 		#endregion
 	}
 }

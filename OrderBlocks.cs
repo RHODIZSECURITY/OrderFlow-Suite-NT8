@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Gui.Tools;
 using NinjaTrader.NinjaScript;
+using Serialize = NinjaTrader.NinjaScript.Serialize;
 using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
@@ -67,13 +68,13 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		[Display(Name = "Bull color", GroupName = "Order Blocks", Order = 2)]
 		public Brush BullColor { get; set; }
 		[Browsable(false)]
-		public string BullColorSerializable { get { return NinjaTrader.Gui.Tools.Serialize.BrushToString(BullColor); } set { BullColor = NinjaTrader.Gui.Tools.Serialize.StringToBrush(value); } }
+		public string BullColorSerializable { get { return Serialize.BrushToString(BullColor); } set { BullColor = Serialize.StringToBrush(value); } }
 
 		[XmlIgnore]
 		[Display(Name = "Bear color", GroupName = "Order Blocks", Order = 3)]
 		public Brush BearColor { get; set; }
 		[Browsable(false)]
-		public string BearColorSerializable { get { return NinjaTrader.Gui.Tools.Serialize.BrushToString(BearColor); } set { BearColor = NinjaTrader.Gui.Tools.Serialize.StringToBrush(value); } }
+		public string BearColorSerializable { get { return Serialize.BrushToString(BearColor); } set { BearColor = Serialize.StringToBrush(value); } }
 		#endregion
 	}
 }
