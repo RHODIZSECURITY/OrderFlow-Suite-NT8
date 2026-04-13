@@ -59,13 +59,13 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		[Display(Name = "Support color", GroupName = "S/R", Order = 1)]
 		public Brush SupportColor { get; set; }
 		[Browsable(false)]
-		public string SupportColorSerializable { get { return Serialize.BrushToString(SupportColor); } set { SupportColor = Serialize.StringToBrush(value); } }
+		public string SupportColorSerializable { get { return NinjaTrader.Gui.Tools.Serialize.BrushToString(SupportColor); } set { SupportColor = NinjaTrader.Gui.Tools.Serialize.StringToBrush(value); } }
 
 		[XmlIgnore]
 		[Display(Name = "Resistance color", GroupName = "S/R", Order = 2)]
 		public Brush ResistanceColor { get; set; }
 		[Browsable(false)]
-		public string ResistanceColorSerializable { get { return Serialize.BrushToString(ResistanceColor); } set { ResistanceColor = Serialize.StringToBrush(value); } }
+		public string ResistanceColorSerializable { get { return NinjaTrader.Gui.Tools.Serialize.BrushToString(ResistanceColor); } set { ResistanceColor = NinjaTrader.Gui.Tools.Serialize.StringToBrush(value); } }
 		#endregion
 	}
 }

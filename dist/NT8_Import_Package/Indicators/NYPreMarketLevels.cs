@@ -84,13 +84,13 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		[Display(Name = "High color", GroupName = "NY PreMarket", Order = 2)]
 		public Brush HighColor { get; set; }
 		[Browsable(false)]
-		public string HighColorSerializable { get { return Serialize.BrushToString(HighColor); } set { HighColor = Serialize.StringToBrush(value); } }
+		public string HighColorSerializable { get { return NinjaTrader.Gui.Tools.Serialize.BrushToString(HighColor); } set { HighColor = NinjaTrader.Gui.Tools.Serialize.StringToBrush(value); } }
 
 		[XmlIgnore]
 		[Display(Name = "Low color", GroupName = "NY PreMarket", Order = 3)]
 		public Brush LowColor { get; set; }
 		[Browsable(false)]
-		public string LowColorSerializable { get { return Serialize.BrushToString(LowColor); } set { LowColor = Serialize.StringToBrush(value); } }
+		public string LowColorSerializable { get { return NinjaTrader.Gui.Tools.Serialize.BrushToString(LowColor); } set { LowColor = NinjaTrader.Gui.Tools.Serialize.StringToBrush(value); } }
 		#endregion
 	}
 }
