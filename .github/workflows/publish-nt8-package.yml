@@ -1,0 +1,55 @@
+name: Publish NT8 Import Package
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure ZIP packages are fresh
+        run: |
+          cd dist
+          zip -rq WyckoffZen-NT8-Import.zip NT8_Import_Package
+          zip -rq OrderFlow-Suite-NT8.1-Import.zip NT8_Import_Package
+
+      - name: Create/Update latest Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: latest
+          name: OrderFlow Suite NT8.1 (latest)
+          allowUpdates: true
+          makeLatest: true
+          replacesArtifacts: true
+          artifacts: "dist/OrderFlow-Suite-NT8.1-Import.zip,dist/WyckoffZen-NT8-Import.zip"
+          body: |
+            Última versión lista para importar en NinjaTrader.
+
+            Archivos incluidos:
+            - OrderFlow-Suite-NT8.1-Import.zip (principal)
+            - WyckoffZen-NT8-Import.zip (compatibilidad)
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push GHCR package (latest)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.package
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/orderflow-suite-nt8.1:latest

@@ -1,0 +1,10 @@
+Última actualización: 2026-04-13
+
+Import en NinjaTrader 8:
+1) Control Center -> Tools -> Import -> NinjaScript Add-On...
+2) Selecciona el archivo ZIP entregado.
+3) Reinicia NinjaTrader.
+
+Si falla por archivos duplicados o conflictos:
+- Haz backup de Documents\NinjaTrader 8\bin\Custom
+- Reintenta en Safe Mode (CTRL al abrir NinjaTrader)
