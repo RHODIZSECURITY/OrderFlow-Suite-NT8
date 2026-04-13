@@ -4,6 +4,7 @@
 using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Windows;
 using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Cbi;
