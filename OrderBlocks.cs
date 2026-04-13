@@ -12,7 +12,7 @@ using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
 	public class OrderBlocks : Indicator
 	{

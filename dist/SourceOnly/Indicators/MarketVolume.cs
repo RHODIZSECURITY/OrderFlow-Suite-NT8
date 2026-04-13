@@ -38,7 +38,7 @@ public static class _MarketVolumeEnums
 	}
 }
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
 	public class MarketVolume : Indicator
 	{
@@ -361,19 +361,19 @@ namespace NinjaTrader.NinjaScript.Indicators
 {
 	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
 	{
-		private WyckoffZen.MarketVolume[] cacheMarketVolume;
-		public WyckoffZen.MarketVolume MarketVolume(_MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
+		private OrderFlow_Suite_RHODIZ.MarketVolume[] cacheMarketVolume;
+		public OrderFlow_Suite_RHODIZ.MarketVolume MarketVolume(_MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
 		{
 			return MarketVolume(Input, _marketVolumeCalculation, _period);
 		}
 
-		public WyckoffZen.MarketVolume MarketVolume(ISeries<double> input, _MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
+		public OrderFlow_Suite_RHODIZ.MarketVolume MarketVolume(ISeries<double> input, _MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
 		{
 			if (cacheMarketVolume != null)
 				for (int idx = 0; idx < cacheMarketVolume.Length; idx++)
 					if (cacheMarketVolume[idx] != null && cacheMarketVolume[idx]._MarketVolumeCalculation == _marketVolumeCalculation && cacheMarketVolume[idx]._Period == _period && cacheMarketVolume[idx].EqualsInput(input))
 						return cacheMarketVolume[idx];
-			return CacheIndicator<WyckoffZen.MarketVolume>(new WyckoffZen.MarketVolume(){ _MarketVolumeCalculation = _marketVolumeCalculation, _Period = _period }, input, ref cacheMarketVolume);
+			return CacheIndicator<OrderFlow_Suite_RHODIZ.MarketVolume>(new OrderFlow_Suite_RHODIZ.MarketVolume(){ _MarketVolumeCalculation = _marketVolumeCalculation, _Period = _period }, input, ref cacheMarketVolume);
 		}
 	}
 }
@@ -382,12 +382,12 @@ namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
 {
 	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
 	{
-		public Indicators.WyckoffZen.MarketVolume MarketVolume(_MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
+		public Indicators.OrderFlow_Suite_RHODIZ.MarketVolume MarketVolume(_MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
 		{
 			return indicator.MarketVolume(Input, _marketVolumeCalculation, _period);
 		}
 
-		public Indicators.WyckoffZen.MarketVolume MarketVolume(ISeries<double> input , _MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
+		public Indicators.OrderFlow_Suite_RHODIZ.MarketVolume MarketVolume(ISeries<double> input , _MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
 		{
 			return indicator.MarketVolume(input, _marketVolumeCalculation, _period);
 		}
@@ -398,12 +398,12 @@ namespace NinjaTrader.NinjaScript.Strategies
 {
 	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
 	{
-		public Indicators.WyckoffZen.MarketVolume MarketVolume(_MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
+		public Indicators.OrderFlow_Suite_RHODIZ.MarketVolume MarketVolume(_MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
 		{
 			return indicator.MarketVolume(Input, _marketVolumeCalculation, _period);
 		}
 
-		public Indicators.WyckoffZen.MarketVolume MarketVolume(ISeries<double> input , _MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
+		public Indicators.OrderFlow_Suite_RHODIZ.MarketVolume MarketVolume(ISeries<double> input , _MarketVolumeEnums.Calculation _marketVolumeCalculation, int _period)
 		{
 			return indicator.MarketVolume(input, _marketVolumeCalculation, _period);
 		}

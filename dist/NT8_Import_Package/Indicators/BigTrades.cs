@@ -16,7 +16,7 @@ using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
 	public class BigTrades : Indicator
 	{
@@ -201,19 +201,19 @@ namespace NinjaTrader.NinjaScript.Indicators
 {
 	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
 	{
-		private WyckoffZen.BigTrades[] cacheBigTrades;
-		public WyckoffZen.BigTrades BigTrades(long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
+		private OrderFlow_Suite_RHODIZ.BigTrades[] cacheBigTrades;
+		public OrderFlow_Suite_RHODIZ.BigTrades BigTrades(long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
 		{
 			return BigTrades(Input, minTradeSize, minBubbleSizeTicks, maxBubbleSizeTicks, volumeScale, bubbleWidthSeconds, fillOpacity, showTradeSizeText);
 		}
 
-		public WyckoffZen.BigTrades BigTrades(ISeries<double> input, long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
+		public OrderFlow_Suite_RHODIZ.BigTrades BigTrades(ISeries<double> input, long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
 		{
 			if (cacheBigTrades != null)
 				for (int idx = 0; idx < cacheBigTrades.Length; idx++)
 					if (cacheBigTrades[idx] != null && cacheBigTrades[idx].MinTradeSize == minTradeSize && cacheBigTrades[idx].MinBubbleSizeTicks == minBubbleSizeTicks && cacheBigTrades[idx].MaxBubbleSizeTicks == maxBubbleSizeTicks && cacheBigTrades[idx].VolumeScale == volumeScale && cacheBigTrades[idx].BubbleWidthSeconds == bubbleWidthSeconds && cacheBigTrades[idx].FillOpacity == fillOpacity && cacheBigTrades[idx].ShowTradeSizeText == showTradeSizeText && cacheBigTrades[idx].EqualsInput(input))
 						return cacheBigTrades[idx];
-			return CacheIndicator<WyckoffZen.BigTrades>(new WyckoffZen.BigTrades(){ MinTradeSize = minTradeSize, MinBubbleSizeTicks = minBubbleSizeTicks, MaxBubbleSizeTicks = maxBubbleSizeTicks, VolumeScale = volumeScale, BubbleWidthSeconds = bubbleWidthSeconds, FillOpacity = fillOpacity, ShowTradeSizeText = showTradeSizeText }, input, ref cacheBigTrades);
+			return CacheIndicator<OrderFlow_Suite_RHODIZ.BigTrades>(new OrderFlow_Suite_RHODIZ.BigTrades(){ MinTradeSize = minTradeSize, MinBubbleSizeTicks = minBubbleSizeTicks, MaxBubbleSizeTicks = maxBubbleSizeTicks, VolumeScale = volumeScale, BubbleWidthSeconds = bubbleWidthSeconds, FillOpacity = fillOpacity, ShowTradeSizeText = showTradeSizeText }, input, ref cacheBigTrades);
 		}
 	}
 }
@@ -222,12 +222,12 @@ namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
 {
 	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
 	{
-		public Indicators.WyckoffZen.BigTrades BigTrades(long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
+		public Indicators.OrderFlow_Suite_RHODIZ.BigTrades BigTrades(long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
 		{
 			return indicator.BigTrades(Input, minTradeSize, minBubbleSizeTicks, maxBubbleSizeTicks, volumeScale, bubbleWidthSeconds, fillOpacity, showTradeSizeText);
 		}
 
-		public Indicators.WyckoffZen.BigTrades BigTrades(ISeries<double> input , long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
+		public Indicators.OrderFlow_Suite_RHODIZ.BigTrades BigTrades(ISeries<double> input , long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
 		{
 			return indicator.BigTrades(input, minTradeSize, minBubbleSizeTicks, maxBubbleSizeTicks, volumeScale, bubbleWidthSeconds, fillOpacity, showTradeSizeText);
 		}
@@ -238,12 +238,12 @@ namespace NinjaTrader.NinjaScript.Strategies
 {
 	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
 	{
-		public Indicators.WyckoffZen.BigTrades BigTrades(long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
+		public Indicators.OrderFlow_Suite_RHODIZ.BigTrades BigTrades(long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
 		{
 			return indicator.BigTrades(Input, minTradeSize, minBubbleSizeTicks, maxBubbleSizeTicks, volumeScale, bubbleWidthSeconds, fillOpacity, showTradeSizeText);
 		}
 
-		public Indicators.WyckoffZen.BigTrades BigTrades(ISeries<double> input , long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
+		public Indicators.OrderFlow_Suite_RHODIZ.BigTrades BigTrades(ISeries<double> input , long minTradeSize, int minBubbleSizeTicks, int maxBubbleSizeTicks, int volumeScale, int bubbleWidthSeconds, int fillOpacity, bool showTradeSizeText)
 		{
 			return indicator.BigTrades(input, minTradeSize, minBubbleSizeTicks, maxBubbleSizeTicks, volumeScale, bubbleWidthSeconds, fillOpacity, showTradeSizeText);
 		}
