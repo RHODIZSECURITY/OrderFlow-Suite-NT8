@@ -55,6 +55,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: latest
+          commit: ${{ github.sha }}
           name: OrderFlow-Suite-NT8
           allowUpdates: false
           makeLatest: true
