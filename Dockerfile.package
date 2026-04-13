@@ -1,6 +1,7 @@
 FROM alpine:3.20
 WORKDIR /package
 COPY dist/OrderFlow-Suite-NT8.1-Import.zip /package/
+COPY dist/OrderFlow-Suite-NT8.1-SourceOnly.zip /package/
 COPY dist/WyckoffZen-NT8-Import.zip /package/
 LABEL org.opencontainers.image.title="OrderFlow Suite NT8.1"
 LABEL org.opencontainers.image.description="NT8 import package (NQ/ES focused)"

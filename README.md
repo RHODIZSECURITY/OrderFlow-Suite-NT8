@@ -48,6 +48,7 @@ También puede utilizarse en otros futuros compatibles con NinjaTrader, pero la 
 4. Compila en NinjaScript Editor (`F5`).
 
 > El paquete ZIP principal se genera desde `dist/OrderFlow-Suite-NT8.1-Import.zip`.
+> Si NinjaTrader muestra error de versión al importar, usa el paquete source-only (`dist/OrderFlow-Suite-NT8.1-SourceOnly.zip`) y compila con `F5`.
 
 ### Opción B: Instalación manual
 
@@ -56,6 +57,13 @@ También puede utilizarse en otros futuros compatibles con NinjaTrader, pero la 
 2. Copia los indicadores (`Bookmap.cs`, `OrderFlow.cs`, etc.) a:
    `Documents\NinjaTrader 8\bin\Custom\Indicators\`
 3. Abre NinjaScript Editor y compila (`F5`).
+
+### Opción C: Source-Only (máxima compatibilidad entre builds)
+
+1. Descarga `OrderFlow-Suite-NT8.1-SourceOnly.zip`.
+2. Copia `SourceOnly/AddOns/*.cs` en `Documents\NinjaTrader 8\bin\Custom\AddOns\`.
+3. Copia `SourceOnly/Indicators/*.cs` en `Documents\NinjaTrader 8\bin\Custom\Indicators\`.
+4. Compila en NinjaScript Editor (`F5`).
 
 ---
 
@@ -131,6 +139,7 @@ En un gráfico:
 - `*.cs` (raíz) → indicadores principales.
 - `dist/NT8_Import_Package/` → paquete listo para importación.
 - `dist/OrderFlow-Suite-NT8.1-Import.zip` → ZIP principal para **Import NinjaScript Add-On**.
+- `dist/OrderFlow-Suite-NT8.1-SourceOnly.zip` → ZIP source-only para copiar/pegar y compilar (evita problemas de versión de import).
 - `dist/WyckoffZen-NT8-Import.zip` → ZIP legado (compatibilidad).
 - `.github/workflows/publish-nt8-package.yml` → publica automáticamente ZIP en **Releases** y paquete en **GitHub Packages (GHCR)**.
 

@@ -22,6 +22,7 @@ jobs:
           cd dist
           zip -rq WyckoffZen-NT8-Import.zip NT8_Import_Package
           zip -rq OrderFlow-Suite-NT8.1-Import.zip NT8_Import_Package
+          zip -rq OrderFlow-Suite-NT8.1-SourceOnly.zip SourceOnly
 
       - name: Create/Update latest Release
         uses: ncipollo/release-action@v1
@@ -31,12 +32,13 @@ jobs:
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true
-          artifacts: "dist/OrderFlow-Suite-NT8.1-Import.zip,dist/WyckoffZen-NT8-Import.zip"
+          artifacts: "dist/OrderFlow-Suite-NT8.1-Import.zip,dist/OrderFlow-Suite-NT8.1-SourceOnly.zip,dist/WyckoffZen-NT8-Import.zip"
           body: |
             Última versión lista para importar en NinjaTrader.
 
             Archivos incluidos:
             - OrderFlow-Suite-NT8.1-Import.zip (principal)
+            - OrderFlow-Suite-NT8.1-SourceOnly.zip (recomendado si hay error de versión al importar)
             - WyckoffZen-NT8-Import.zip (compatibilidad)
 
       - name: Log in to GitHub Container Registry
