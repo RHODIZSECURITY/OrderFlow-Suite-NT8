@@ -4,11 +4,11 @@
 using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Gui.Tools;
 using NinjaTrader.NinjaScript;
-using Serialize = NinjaTrader.NinjaScript.Serialize;
 using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
@@ -62,6 +62,22 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 			}
 		}
 
+		private string BrushToString(Brush brush)
+		{
+			return brush == null
+				? string.Empty
+				: new BrushConverter().ConvertToString(null, CultureInfo.InvariantCulture, brush);
+		}
+
+		private Brush StringToBrush(string value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return Brushes.Transparent;
+
+			var converted = new BrushConverter().ConvertFromString(null, CultureInfo.InvariantCulture, value);
+			return converted as Brush ?? Brushes.Transparent;
+		}
+
 		#region Properties
 		[NinjaScriptProperty]
 		[Range(2, 50)]
@@ -88,13 +104,13 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		[Display(Name = "Support color", GroupName = "S/R", Order = 4)]
 		public Brush SupportColor { get; set; }
 		[Browsable(false)]
-		public string SupportColorSerializable { get { return Serialize.BrushToString(SupportColor); } set { SupportColor = Serialize.StringToBrush(value); } }
+		public string SupportColorSerializable { get { return BrushToString(SupportColor); } set { SupportColor = StringToBrush(value); } }
 
 		[XmlIgnore]
 		[Display(Name = "Resistance color", GroupName = "S/R", Order = 5)]
 		public Brush ResistanceColor { get; set; }
 		[Browsable(false)]
-		public string ResistanceColorSerializable { get { return Serialize.BrushToString(ResistanceColor); } set { ResistanceColor = Serialize.StringToBrush(value); } }
+		public string ResistanceColorSerializable { get { return BrushToString(ResistanceColor); } set { ResistanceColor = StringToBrush(value); } }
 		#endregion
 	}
 }

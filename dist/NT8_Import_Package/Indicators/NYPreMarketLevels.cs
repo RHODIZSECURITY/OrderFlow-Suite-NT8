@@ -4,11 +4,11 @@
 using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Gui.Tools;
 using NinjaTrader.NinjaScript;
-using Serialize = NinjaTrader.NinjaScript.Serialize;
 using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
@@ -70,6 +70,22 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 				Draw.HorizontalLine(this, "NYPML_" + currentDate.ToString("yyyyMMdd"), preLow, LowColor);
 		}
 
+		private string BrushToString(Brush brush)
+		{
+			return brush == null
+				? string.Empty
+				: new BrushConverter().ConvertToString(null, CultureInfo.InvariantCulture, brush);
+		}
+
+		private Brush StringToBrush(string value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return Brushes.Transparent;
+
+			var converted = new BrushConverter().ConvertFromString(null, CultureInfo.InvariantCulture, value);
+			return converted as Brush ?? Brushes.Transparent;
+		}
+
 		#region Properties
 		[NinjaScriptProperty]
 		[Range(0, 235959)]
@@ -85,13 +101,13 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		[Display(Name = "High color", GroupName = "NY PreMarket", Order = 2)]
 		public Brush HighColor { get; set; }
 		[Browsable(false)]
-		public string HighColorSerializable { get { return Serialize.BrushToString(HighColor); } set { HighColor = Serialize.StringToBrush(value); } }
+		public string HighColorSerializable { get { return BrushToString(HighColor); } set { HighColor = StringToBrush(value); } }
 
 		[XmlIgnore]
 		[Display(Name = "Low color", GroupName = "NY PreMarket", Order = 3)]
 		public Brush LowColor { get; set; }
 		[Browsable(false)]
-		public string LowColorSerializable { get { return Serialize.BrushToString(LowColor); } set { LowColor = Serialize.StringToBrush(value); } }
+		public string LowColorSerializable { get { return BrushToString(LowColor); } set { LowColor = StringToBrush(value); } }
 		#endregion
 	}
 }
