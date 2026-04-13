@@ -2,7 +2,8 @@ name: Publish NT8 Import Package
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - "**"
   workflow_dispatch:
 
 permissions:
