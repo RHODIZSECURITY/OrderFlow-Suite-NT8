@@ -32,6 +32,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 				ZoneTicks = 8;
 				ForwardBars = 120;
 				Opacity = 20;
+				ShowLabels = true;
+				LabelColor = Brushes.White;
 			}
 			else if (State == State.DataLoaded)
 			{
@@ -52,6 +54,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 				double resTop = sHigh + (ZoneTicks * TickSize * 0.5);
 				double resBot = sHigh - (ZoneTicks * TickSize * 0.5);
 				Draw.Rectangle(this, "RES_ZONE_" + CurrentBar, false, 0, resTop, -ForwardBars, resBot, ResistanceColor, ResistanceColor, Opacity);
+				if (ShowLabels)
+					Draw.Text(this, "RES_LABEL_" + CurrentBar, "RESISTANCE", 0, (resTop + resBot) * 0.5, LabelColor);
 			}
 
 			if (sLow > 0)
@@ -59,6 +63,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 				double supTop = sLow + (ZoneTicks * TickSize * 0.5);
 				double supBot = sLow - (ZoneTicks * TickSize * 0.5);
 				Draw.Rectangle(this, "SUP_ZONE_" + CurrentBar, false, 0, supTop, -ForwardBars, supBot, SupportColor, SupportColor, Opacity);
+				if (ShowLabels)
+					Draw.Text(this, "SUP_LABEL_" + CurrentBar, "SUPPORT", 0, (supTop + supBot) * 0.5, LabelColor);
 			}
 		}
 
@@ -100,14 +106,24 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		[Display(Name = "Opacity %", GroupName = "S/R", Order = 3)]
 		public int Opacity { get; set; }
 
+		[NinjaScriptProperty]
+		[Display(Name = "Show labels", GroupName = "S/R", Order = 4)]
+		public bool ShowLabels { get; set; }
+
 		[XmlIgnore]
-		[Display(Name = "Support color", GroupName = "S/R", Order = 4)]
+		[Display(Name = "Label color", GroupName = "S/R", Order = 5)]
+		public Brush LabelColor { get; set; }
+		[Browsable(false)]
+		public string LabelColorSerializable { get { return BrushToString(LabelColor); } set { LabelColor = StringToBrush(value); } }
+
+		[XmlIgnore]
+		[Display(Name = "Support color", GroupName = "S/R", Order = 6)]
 		public Brush SupportColor { get; set; }
 		[Browsable(false)]
 		public string SupportColorSerializable { get { return BrushToString(SupportColor); } set { SupportColor = StringToBrush(value); } }
 
 		[XmlIgnore]
-		[Display(Name = "Resistance color", GroupName = "S/R", Order = 5)]
+		[Display(Name = "Resistance color", GroupName = "S/R", Order = 7)]
 		public Brush ResistanceColor { get; set; }
 		[Browsable(false)]
 		public string ResistanceColorSerializable { get { return BrushToString(ResistanceColor); } set { ResistanceColor = StringToBrush(value); } }

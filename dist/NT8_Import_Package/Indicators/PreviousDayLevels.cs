@@ -32,6 +32,11 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 				ShowLabels = true;
 				HighColor = Brushes.LimeGreen;
 				LowColor = Brushes.OrangeRed;
+				StartTime = 93000;
+				EndTime = 160000;
+				HighLineStyle = DashStyleHelper.Solid;
+				LowLineStyle = DashStyleHelper.Dash;
+				LineWidth = 2;
 			}
 			else if (State == State.Configure)
 			{
@@ -54,12 +59,25 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			if (prevHigh <= 0 || prevLow <= 0)
 				return;
 
-			Draw.HorizontalLine(this, "PDH", prevHigh, HighColor);
-			Draw.HorizontalLine(this, "PDL", prevLow, LowColor);
+			int now = ToTime(Time[0]);
+			if (now < StartTime || now > EndTime)
+			{
+				RemoveDrawObject("PDH");
+				RemoveDrawObject("PDL");
+				RemoveDrawObject("PDH_LABEL");
+				RemoveDrawObject("PDL_LABEL");
+				return;
+			}
+
+			var pdh = Draw.HorizontalLine(this, "PDH", prevHigh, HighColor);
+			pdh.Stroke = new Stroke(HighColor, HighLineStyle, LineWidth);
+			var pdl = Draw.HorizontalLine(this, "PDL", prevLow, LowColor);
+			pdl.Stroke = new Stroke(LowColor, LowLineStyle, LineWidth);
 
 			if (ShowLabels)
 			{
-				Draw.TextFixed(this, "PDLevels", string.Format("PDH: {0:F2} | PDL: {1:F2}", prevHigh, prevLow), TextPosition.TopRight);
+				Draw.Text(this, "PDH_LABEL", "PDH", 0, prevHigh, HighColor);
+				Draw.Text(this, "PDL_LABEL", "PDL", 0, prevLow, LowColor);
 			}
 		}
 
@@ -84,14 +102,37 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		[Display(Name = "Show labels", GroupName = "Previous Day Levels", Order = 0)]
 		public bool ShowLabels { get; set; }
 
+		[NinjaScriptProperty]
+		[Range(0, 235959)]
+		[Display(Name = "Start Time (HHmmss)", GroupName = "Previous Day Levels", Order = 1)]
+		public int StartTime { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(0, 235959)]
+		[Display(Name = "End Time (HHmmss)", GroupName = "Previous Day Levels", Order = 2)]
+		public int EndTime { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "High line style", GroupName = "Previous Day Levels", Order = 3)]
+		public DashStyleHelper HighLineStyle { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Low line style", GroupName = "Previous Day Levels", Order = 4)]
+		public DashStyleHelper LowLineStyle { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, 10)]
+		[Display(Name = "Line width", GroupName = "Previous Day Levels", Order = 5)]
+		public int LineWidth { get; set; }
+
 		[XmlIgnore]
-		[Display(Name = "High color", GroupName = "Previous Day Levels", Order = 1)]
+		[Display(Name = "High color", GroupName = "Previous Day Levels", Order = 6)]
 		public Brush HighColor { get; set; }
 		[Browsable(false)]
 		public string HighColorSerializable { get { return BrushToString(HighColor); } set { HighColor = StringToBrush(value); } }
 
 		[XmlIgnore]
-		[Display(Name = "Low color", GroupName = "Previous Day Levels", Order = 2)]
+		[Display(Name = "Low color", GroupName = "Previous Day Levels", Order = 7)]
 		public Brush LowColor { get; set; }
 		[Browsable(false)]
 		public string LowColorSerializable { get { return BrushToString(LowColor); } set { LowColor = StringToBrush(value); } }

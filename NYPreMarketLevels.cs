@@ -34,6 +34,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 				PreMarketEnd = 93000;
 				HighColor = Brushes.DeepSkyBlue;
 				LowColor = Brushes.MediumPurple;
+				ShowLabels = true;
+				DisplayStart = 93000;
+				DisplayEnd = 160000;
+				HighLineStyle = DashStyleHelper.Solid;
+				LowLineStyle = DashStyleHelper.Dash;
+				LineWidth = 2;
 			}
 		}
 
@@ -64,10 +70,29 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			if (!finalized && (preHigh == double.MinValue || preLow == double.MaxValue))
 				return;
 
+			if (now < DisplayStart || now > DisplayEnd)
+			{
+				RemoveDrawObject("NYPMH_" + currentDate.ToString("yyyyMMdd"));
+				RemoveDrawObject("NYPML_" + currentDate.ToString("yyyyMMdd"));
+				RemoveDrawObject("NYPMH_LABEL_" + currentDate.ToString("yyyyMMdd"));
+				RemoveDrawObject("NYPML_LABEL_" + currentDate.ToString("yyyyMMdd"));
+				return;
+			}
+
 			if (preHigh != double.MinValue)
-				Draw.HorizontalLine(this, "NYPMH_" + currentDate.ToString("yyyyMMdd"), preHigh, HighColor);
+			{
+				var hLine = Draw.HorizontalLine(this, "NYPMH_" + currentDate.ToString("yyyyMMdd"), preHigh, HighColor);
+				hLine.Stroke = new Stroke(HighColor, HighLineStyle, LineWidth);
+				if (ShowLabels)
+					Draw.Text(this, "NYPMH_LABEL_" + currentDate.ToString("yyyyMMdd"), "PRE HIGH", 0, preHigh, HighColor);
+			}
 			if (preLow != double.MaxValue)
-				Draw.HorizontalLine(this, "NYPML_" + currentDate.ToString("yyyyMMdd"), preLow, LowColor);
+			{
+				var lLine = Draw.HorizontalLine(this, "NYPML_" + currentDate.ToString("yyyyMMdd"), preLow, LowColor);
+				lLine.Stroke = new Stroke(LowColor, LowLineStyle, LineWidth);
+				if (ShowLabels)
+					Draw.Text(this, "NYPML_LABEL_" + currentDate.ToString("yyyyMMdd"), "PRE LOW", 0, preLow, LowColor);
+			}
 		}
 
 		private string BrushToString(Brush brush)
@@ -97,14 +122,41 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		[Display(Name = "PreMarket End (HHmmss)", GroupName = "NY PreMarket", Order = 1)]
 		public int PreMarketEnd { get; set; }
 
+		[NinjaScriptProperty]
+		[Display(Name = "Show labels", GroupName = "NY PreMarket", Order = 2)]
+		public bool ShowLabels { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(0, 235959)]
+		[Display(Name = "Display start (HHmmss)", GroupName = "NY PreMarket", Order = 3)]
+		public int DisplayStart { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(0, 235959)]
+		[Display(Name = "Display end (HHmmss)", GroupName = "NY PreMarket", Order = 4)]
+		public int DisplayEnd { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "High line style", GroupName = "NY PreMarket", Order = 5)]
+		public DashStyleHelper HighLineStyle { get; set; }
+
+		[NinjaScriptProperty]
+		[Display(Name = "Low line style", GroupName = "NY PreMarket", Order = 6)]
+		public DashStyleHelper LowLineStyle { get; set; }
+
+		[NinjaScriptProperty]
+		[Range(1, 10)]
+		[Display(Name = "Line width", GroupName = "NY PreMarket", Order = 7)]
+		public int LineWidth { get; set; }
+
 		[XmlIgnore]
-		[Display(Name = "High color", GroupName = "NY PreMarket", Order = 2)]
+		[Display(Name = "High color", GroupName = "NY PreMarket", Order = 8)]
 		public Brush HighColor { get; set; }
 		[Browsable(false)]
 		public string HighColorSerializable { get { return BrushToString(HighColor); } set { HighColor = StringToBrush(value); } }
 
 		[XmlIgnore]
-		[Display(Name = "Low color", GroupName = "NY PreMarket", Order = 3)]
+		[Display(Name = "Low color", GroupName = "NY PreMarket", Order = 9)]
 		public Brush LowColor { get; set; }
 		[Browsable(false)]
 		public string LowColorSerializable { get { return BrushToString(LowColor); } set { LowColor = StringToBrush(value); } }
