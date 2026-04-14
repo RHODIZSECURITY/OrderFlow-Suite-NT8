@@ -7,9 +7,6 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Cbi;
@@ -20,7 +17,6 @@ using NinjaTrader.Gui.Tools;
 using NinjaTrader.Data;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.Core.FloatingPoint;
-using NinjaTrader.Gui.Tools;
 #endregion
 
 using System.IO;
@@ -37,18 +33,42 @@ namespace NinjaTrader.NinjaScript.AddOns
 			protected ChartScale CHART_SCALE;
 			protected ChartBars CHART_BARS;
 			protected SharpDX.Direct2D1.RenderTarget RENDER_TARGET;
-			
+
 			protected float W;
 			protected float H;
 			protected float PanelH;
 			protected float PanelW;
-			
+
+			private readonly Dictionary<int, SharpDX.Direct2D1.SolidColorBrush> _brushCache =
+				new Dictionary<int, SharpDX.Direct2D1.SolidColorBrush>();
+
 			public void setRenderTarget(ChartControl chartControl, ChartScale chartScale, ChartBars chartBars, SharpDX.Direct2D1.RenderTarget renderTarget)
 			{
+				if (this.RENDER_TARGET != renderTarget)
+					DisposeBrushCache();
 				this.CHART_CONTROL = chartControl;
 				this.CHART_SCALE = chartScale;
 				this.CHART_BARS = chartBars;
 				this.RENDER_TARGET = renderTarget;
+			}
+
+			private SharpDX.Direct2D1.SolidColorBrush AcquireBrush(SharpDX.Color color)
+			{
+				int key = color.ToRgba();
+				SharpDX.Direct2D1.SolidColorBrush brush;
+				if (!_brushCache.TryGetValue(key, out brush) || brush == null || brush.IsDisposed)
+				{
+					brush = new SharpDX.Direct2D1.SolidColorBrush(RENDER_TARGET, color);
+					_brushCache[key] = brush;
+				}
+				return brush;
+			}
+
+			public void DisposeBrushCache()
+			{
+				foreach (var b in _brushCache.Values)
+					if (b != null && !b.IsDisposed) b.Dispose();
+				_brushCache.Clear();
 			}
 			public void setHW(float H, float W)
 			{
@@ -108,61 +128,44 @@ namespace NinjaTrader.NinjaScript.AddOns
 			
 			protected void myDrawText(string text, ref SharpDX.RectangleF rect, SharpDX.Color color, float fontWidth, float fontHeight, SharpDX.DirectWrite.TextFormat textFormat, float brushOpacity)
 			{
-				if( this.W >= fontWidth && this.H >= fontHeight ){
-					SharpDX.Direct2D1.Brush dxBrush = new SharpDX.Direct2D1.SolidColorBrush(RENDER_TARGET, color);
-					if( !dxBrush.IsDisposed ){
-						dxBrush.Opacity = brushOpacity;
-						RENDER_TARGET.DrawText(text, textFormat, rect, dxBrush);
-						dxBrush.Dispose();
-					}
+				if (this.W >= fontWidth && this.H >= fontHeight)
+				{
+					var dxBrush = AcquireBrush(color);
+					dxBrush.Opacity = brushOpacity;
+					RENDER_TARGET.DrawText(text, textFormat, rect, dxBrush);
 				}
 			}
 			protected void myFillRectangle(ref SharpDX.RectangleF rect, SharpDX.Color color, float opacity)
 			{
-				SharpDX.Direct2D1.Brush dxBrush = new SharpDX.Direct2D1.SolidColorBrush(RENDER_TARGET, color);
-				if( !dxBrush.IsDisposed ){
-					dxBrush.Opacity = opacity;
-					RENDER_TARGET.FillRectangle(rect, dxBrush);	
-					dxBrush.Dispose();
-				}
+				var dxBrush = AcquireBrush(color);
+				dxBrush.Opacity = opacity;
+				RENDER_TARGET.FillRectangle(rect, dxBrush);
 			}
 			protected void myDrawRectangle(ref SharpDX.RectangleF rect, SharpDX.Color color, float opacity, float strokeWidth)
 			{
-				SharpDX.Direct2D1.Brush dxBrush = new SharpDX.Direct2D1.SolidColorBrush(RENDER_TARGET, color);
-				if( !dxBrush.IsDisposed ){
-					dxBrush.Opacity = opacity;
-					RENDER_TARGET.DrawRectangle(rect, dxBrush, strokeWidth);
-					dxBrush.Dispose();
-				}
+				var dxBrush = AcquireBrush(color);
+				dxBrush.Opacity = opacity;
+				RENDER_TARGET.DrawRectangle(rect, dxBrush, strokeWidth);
 			}
 			protected void myDrawEllipse(ref SharpDX.Direct2D1.Ellipse ellipse, SharpDX.Color color, float opacity, float strokeWidth)
 			{
-				SharpDX.Direct2D1.Brush dxBrush = new SharpDX.Direct2D1.SolidColorBrush(RENDER_TARGET, color);
-				if( !dxBrush.IsDisposed ){
-					dxBrush.Opacity = opacity;
-					RENDER_TARGET.DrawEllipse(ellipse, dxBrush, strokeWidth);
-					dxBrush.Dispose();
-				}
+				var dxBrush = AcquireBrush(color);
+				dxBrush.Opacity = opacity;
+				RENDER_TARGET.DrawEllipse(ellipse, dxBrush, strokeWidth);
 			}
 			protected void myFillEllipse(ref SharpDX.Direct2D1.Ellipse ellipse, SharpDX.Color color, float opacity)
 			{
-				SharpDX.Direct2D1.Brush dxBrush = new SharpDX.Direct2D1.SolidColorBrush(RENDER_TARGET, color);
-				if( !dxBrush.IsDisposed ){
-					dxBrush.Opacity = opacity;
-					RENDER_TARGET.FillEllipse(ellipse, dxBrush);
-					dxBrush.Dispose();
-				}
+				var dxBrush = AcquireBrush(color);
+				dxBrush.Opacity = opacity;
+				RENDER_TARGET.FillEllipse(ellipse, dxBrush);
 			}
 			protected void myDrawLine(ref SharpDX.Vector2 startVec, ref SharpDX.Vector2 endVec,
 				SharpDX.Color color, float opacity,
 				float strokeWidth, SharpDX.Direct2D1.StrokeStyle strokeStyle)
 			{
-				SharpDX.Direct2D1.Brush dxBrush = new SharpDX.Direct2D1.SolidColorBrush(RENDER_TARGET, color);
-				if( !dxBrush.IsDisposed ){
-					dxBrush.Opacity = opacity;
-					RENDER_TARGET.DrawLine(startVec, endVec, dxBrush, strokeWidth, strokeStyle);
-					dxBrush.Dispose();
-				}
+				var dxBrush = AcquireBrush(color);
+				dxBrush.Opacity = opacity;
+				RENDER_TARGET.DrawLine(startVec, endVec, dxBrush, strokeWidth, strokeStyle);
 			}
 			protected void myDrawLine(ref SharpDX.Vector2 startVec, ref SharpDX.Vector2 endVec, SharpDX.Color color)
 			{
@@ -275,8 +278,8 @@ namespace NinjaTrader.NinjaScript.AddOns
 				if( brushColor.Equals(Brushes.MediumVioletRed.ToString()) ) return SharpDX.Color.MediumVioletRed;
 				if( brushColor.Equals(Brushes.MidnightBlue.ToString()) ) return SharpDX.Color.MidnightBlue;
 				if( brushColor.Equals(Brushes.MintCream.ToString()) ) return SharpDX.Color.MintCream;
-				if( brushColor.Equals(Brushes.MistyRose.ToString()) ) return SharpDX.Color.MintCream;
-				if( brushColor.Equals(Brushes.Moccasin.ToString()) ) return SharpDX.Color.MintCream;
+				if( brushColor.Equals(Brushes.MistyRose.ToString()) ) return SharpDX.Color.MistyRose;
+				if( brushColor.Equals(Brushes.Moccasin.ToString()) ) return SharpDX.Color.Moccasin;
 				// # N
 				if( brushColor.Equals(Brushes.NavajoWhite.ToString()) ) return SharpDX.Color.NavajoWhite;
 				if( brushColor.Equals(Brushes.Navy.ToString()) ) return SharpDX.Color.Navy;

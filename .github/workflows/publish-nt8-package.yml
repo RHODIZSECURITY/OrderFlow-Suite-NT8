@@ -1,4 +1,4 @@
-name: Publish NT8 Import Package
+name: Publish NT8 Package
 
 on:
   push:
@@ -17,29 +17,81 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure ZIP packages are fresh
-        run: |
-          cd dist
-          zip -rq WyckoffZen-NT8-Import.zip NT8_Import_Package
-          zip -rq OrderFlow-Suite-NT8.1-Import.zip NT8_Import_Package
-          zip -rq OrderFlow-Suite-NT8.1-SourceOnly.zip SourceOnly
+      - name: Read version
+        id: version
+        run: echo "VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_OUTPUT
 
-      - name: Create/Update latest Release
+      - name: Sync source files to dist packages
+        run: |
+          # Sync root indicators → dist packages (single source of truth)
+          cp BigTrades.cs VolumeAnalysisProfile.cs VolumeFilter.cs MarketVolume.cs \
+             OrderFlow.cs Bookmap.cs FairValueGaps.cs OrderBlocks.cs \
+             SupportResistance.cs PreviousDayLevels.cs NYPreMarketLevels.cs \
+             dist/NT8_Import_Package/Indicators/
+          cp BigTrades.cs VolumeAnalysisProfile.cs VolumeFilter.cs MarketVolume.cs \
+             OrderFlow.cs Bookmap.cs FairValueGaps.cs OrderBlocks.cs \
+             SupportResistance.cs PreviousDayLevels.cs NYPreMarketLevels.cs \
+             dist/SourceOnly/Indicators/
+          cp AddOns/SE.cs AddOns/WyckoffRender.cs dist/NT8_Import_Package/AddOns/
+          cp AddOns/SE.cs AddOns/WyckoffRender.cs dist/SourceOnly/AddOns/
+          # Sync TradingView scripts
+          mkdir -p dist/NT8_Import_Package/TradingView dist/SourceOnly/TradingView
+          cp AddOns/*.pine dist/NT8_Import_Package/TradingView/
+          cp AddOns/*.pine dist/SourceOnly/TradingView/
+
+      - name: Build versioned ZIPs
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          cd dist
+          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-Import.zip"     NT8_Import_Package
+          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-SourceOnly.zip"  SourceOnly
+          zip -jq "OrderFlow-Suite-TradingView-v${VERSION}.zip"     NT8_Import_Package/TradingView/
+
+      - name: Create versioned release
         uses: ncipollo/release-action@v1
         with:
-          tag: latest
-          name: OrderFlow Suite NT8.1 (latest)
+          tag: v${{ steps.version.outputs.VERSION }}
+          name: "OrderFlow Suite NT8 v${{ steps.version.outputs.VERSION }}"
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true
-          artifacts: "dist/OrderFlow-Suite-NT8.1-Import.zip,dist/OrderFlow-Suite-NT8.1-SourceOnly.zip,dist/WyckoffZen-NT8-Import.zip"
+          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip,dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip,dist/OrderFlow-Suite-TradingView-v${{ steps.version.outputs.VERSION }}.zip"
           body: |
-            Última versión lista para importar en NinjaTrader.
+            ## OrderFlow Suite NT8 v${{ steps.version.outputs.VERSION }}
 
-            Archivos incluidos:
-            - OrderFlow-Suite-NT8.1-Import.zip (principal)
-            - OrderFlow-Suite-NT8.1-SourceOnly.zip (recomendado si hay error de versión al importar)
-            - WyckoffZen-NT8-Import.zip (compatibilidad)
+            ### Archivos incluidos
+            | Archivo | Descripción |
+            |---------|-------------|
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` | Importación directa en NinjaTrader (Tools → Import NinjaScript Add-On) |
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip` | Copia manual de archivos .cs (recomendado si hay error de versión) |
+            | `OrderFlow-Suite-TradingView-v${{ steps.version.outputs.VERSION }}.zip` | Scripts Pine para TradingView |
+
+            ### Indicadores NT8
+            Bookmap · OrderFlow · VolumeAnalysisProfile · VolumeFilter · MarketVolume · BigTrades · FairValueGaps · OrderBlocks · SupportResistance · PreviousDayLevels · NYPreMarketLevels
+
+            ### Scripts TradingView
+            OrderFlowScalperPro · SMC/ICT Suite Pro v25
+
+            ### Configuración requerida
+            Activar **Tick Replay** en NinjaTrader: Tools → Options → Market Data.
+
+      - name: Update latest tag
+        uses: ncipollo/release-action@v1
+        with:
+          tag: latest
+          name: "OrderFlow Suite NT8 (latest) — v${{ steps.version.outputs.VERSION }}"
+          allowUpdates: true
+          makeLatest: false
+          replacesArtifacts: true
+          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip,dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip,dist/OrderFlow-Suite-TradingView-v${{ steps.version.outputs.VERSION }}.zip"
+          body: |
+            ## OrderFlow Suite NT8 (latest) — v${{ steps.version.outputs.VERSION }}
+
+            | Archivo | Descripción |
+            |---------|-------------|
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` | Importación directa en NinjaTrader |
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip` | Copia manual de archivos .cs |
+            | `OrderFlow-Suite-TradingView-v${{ steps.version.outputs.VERSION }}.zip` | Scripts Pine para TradingView |
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -48,10 +100,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push GHCR package (latest)
+      - name: Build and Push GHCR package
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile.package
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/orderflow-suite-nt8.1:latest
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/orderflow-suite-nt8:latest
+            ghcr.io/${{ github.repository_owner }}/orderflow-suite-nt8:v${{ steps.version.outputs.VERSION }}

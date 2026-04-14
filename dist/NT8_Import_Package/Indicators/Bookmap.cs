@@ -7,7 +7,6 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -791,6 +790,7 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		private VolumeAnalysis.BookMap bookMap;
 		private VolumeAnalysis.PriceLadder marketOrderLadder;
 		private VolumeAnalysis.OrderBookLadder orderBookLadder;
+		private readonly object _dataLock = new object();
 		
 		#endregion
 		#region INDICATOR_SETUP
@@ -994,20 +994,39 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 				// !- nivel maximo de la escalera de precios
 				bookMap.setLadderRange(ladderRange);
 				bookMap.setFilterSessionPercent(_FilterSessionPendingOrdersPer);
-				if( this._SaveSession ){
-					if( _SessionSaveFilePath.IsNullOrEmpty() ){
-						// !- Desde la ultima barra cargada...
+				if (this._SaveSession)
+				{
+					if (_SessionSaveFilePath.IsNullOrEmpty())
+					{
 						DateTime tmp = this.Bars.LastBarTime;
 						string sessionTime = tmp.Year.ToString() + '_' + tmp.Month.ToString() + '_' + tmp.Day.ToString();
-						// !- siempre cargamos el nombre del archivo con la ruta asociada a la propiedad de NT8
-						_SessionSaveFilePath =
-							NinjaTrader.Core.Globals.UserDataDir + "session" + sessionTime + ".bm";//NinjaTrader.Core.Globals.UserDataDir + "session" + Bars.LastBarTime.ToString() + ".bm";
+						_SessionSaveFilePath = NinjaTrader.Core.Globals.UserDataDir + "session" + sessionTime + ".bm";
 					}
-					bookMap.SaveSessionFile(_SessionSaveFilePath);
+					// Ensure save path is within the NinjaTrader user data directory
+					string safeUserDir = System.IO.Path.GetFullPath(NinjaTrader.Core.Globals.UserDataDir);
+					string fullSavePath = System.IO.Path.GetFullPath(_SessionSaveFilePath);
+					if (!fullSavePath.StartsWith(safeUserDir, StringComparison.OrdinalIgnoreCase))
+					{
+						Print("[Bookmap] Session save path rejected (outside UserDataDir): " + _SessionSaveFilePath);
+					}
+					else
+					{
+						bookMap.SaveSessionFile(_SessionSaveFilePath);
+					}
 				}
-				if( !this._SessionLoadFilePath.IsNullOrEmpty() ){
-					VolumeAnalysis.BookMap.SessionError err = bookMap.LoadSessionFile(_SessionLoadFilePath);
-					Print(string.Format("[+] Session error:{0}", err));
+				if (!this._SessionLoadFilePath.IsNullOrEmpty())
+				{
+					string safeUserDir  = System.IO.Path.GetFullPath(NinjaTrader.Core.Globals.UserDataDir);
+					string fullLoadPath = System.IO.Path.GetFullPath(_SessionLoadFilePath);
+					if (!fullLoadPath.StartsWith(safeUserDir, StringComparison.OrdinalIgnoreCase))
+					{
+						Print("[Bookmap] Session load path rejected (outside UserDataDir): " + _SessionLoadFilePath);
+					}
+					else
+					{
+						VolumeAnalysis.BookMap.SessionError err = bookMap.LoadSessionFile(_SessionLoadFilePath);
+						Print(string.Format("[Bookmap] Session loaded — status: {0}", err));
+					}
 				}
 				wyckoffBM.setBookMap(bookMap);
 				
@@ -1027,51 +1046,62 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 			}
 			else if(State == State.Terminated)
 			{
-				if( ChartControl != null )
+				if (ChartControl != null)
 					ChartControl.Properties.BarMarginRight = 0;
+				if (wyckoffBM != null)
+					wyckoffBM.DisposeBrushCache();
 			}
 		}
 		protected override void OnRender(ChartControl chartControl, ChartScale chartScale)
 		{
 			base.OnRender(chartControl, chartScale);
-			if( !wyckoffBM.IsRealtime || IsInHitTest || chartControl == null || ChartBars.Bars == null ){
+			if (wyckoffBM == null || !wyckoffBM.IsRealtime || IsInHitTest || chartControl == null || ChartBars == null || ChartBars.Bars == null)
 				return;
-			}
-			// !- margen derecho de la pantalla
+
 			chartControl.Properties.BarMarginRight = _BookMarginRight;
-			
-			// 1- Altura minima de un tick
-			// 2- Ancho de barra en barra
 			wyckoffBM.setHW(chartScale.GetPixelsForDistance(TickSize), chartControl.Properties.BarDistance);
 			wyckoffBM.setChartPanelHW(ChartPanel.H, ChartPanel.W);
-			// !- Apuntamos al target de renderizado
 			wyckoffBM.setRenderTarget(chartControl, chartScale, ChartBars, RenderTarget);
-			
+
 			int fromIndex = ChartBars.FromIndex;
-			int toIndex = ChartBars.ToIndex;
-			//try{
-				for (int index = fromIndex; index <= toIndex; index++){
-					wyckoffBM.renderOrdersLadder(index);
+			int toIndex   = ChartBars.ToIndex;
+			try
+			{
+				lock (_dataLock)
+				{
+					for (int index = fromIndex; index <= toIndex; index++)
+						wyckoffBM.renderOrdersLadder(index);
+
+					wyckoffBM.renderOrderBookLadder();
+					wyckoffBM.renderCummulativeMarketOrderLadder();
 				}
-				
-				wyckoffBM.renderOrderBookLadder();
-				wyckoffBM.renderCummulativeMarketOrderLadder();
-			//} catch{ /*Print("Exception ocurred");*/ }
+			}
+			catch (Exception ex)
+			{
+				Print("Bookmap render error: " + ex.Message);
+			}
 			wyckoffBM.renderBackground();
 		}
 		// !- necesario para obtener el libro de ordenes(Level II)
 		protected override void OnMarketDepth(MarketDepthEventArgs depthMarketArgs)
 		{
-			bookMap.onMarketDepth(depthMarketArgs);
-			orderBookLadder.AddOrder(Bars.LastPrice, depthMarketArgs);
-			// !- Renderizamos nuevamente
+			if (depthMarketArgs == null) return;
+			lock (_dataLock)
+			{
+				bookMap.onMarketDepth(depthMarketArgs);
+				orderBookLadder.AddOrder(Bars.LastPrice, depthMarketArgs);
+			}
 			ForceRefresh();
 		}
-		protected override void OnMarketData(MarketDataEventArgs MarketArgs){
-			if( !wyckoffBars.onMarketData(MarketArgs) )
-				return;
-			
-			marketOrderLadder.AddPrice(MarketArgs);
+		protected override void OnMarketData(MarketDataEventArgs MarketArgs)
+		{
+			if (MarketArgs == null) return;
+			lock (_dataLock)
+			{
+				if (!wyckoffBars.onMarketData(MarketArgs))
+					return;
+				marketOrderLadder.AddPrice(MarketArgs);
+			}
 		}
 		
 		#region Properties
