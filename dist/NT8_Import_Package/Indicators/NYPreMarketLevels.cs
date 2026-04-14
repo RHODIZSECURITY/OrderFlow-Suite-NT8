@@ -16,7 +16,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 {
 	public class NYPreMarketLevels : Indicator
 	{
-		private const string SuiteVersion = "v1.0.1-phase1";
+		private const string SuiteVersion = "v1.0.2";
 		private DateTime currentDate;
 		private double preHigh;
 		private double preLow;
