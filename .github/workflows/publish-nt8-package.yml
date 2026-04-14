@@ -23,31 +23,44 @@ jobs:
 
       - name: Sync source files to dist packages
         run: |
-          # Sync root indicators → dist packages (single source of truth)
+          # Sync root indicators -> dist (single source of truth)
           cp BigTrades.cs VolumeAnalysisProfile.cs VolumeFilter.cs MarketVolume.cs \
              OrderFlow.cs Bookmap.cs FairValueGaps.cs OrderBlocks.cs \
              SupportResistance.cs PreviousDayLevels.cs NYPreMarketLevels.cs \
+             TripleA.cs SessionGap.cs SessionVWAP.cs MASeries.cs \
+             BollingerBands.cs ORBPro.cs MarketStructure.cs \
+             LiquiditySuite.cs PremiumDiscountZones.cs \
              dist/NT8_Import_Package/Indicators/
           cp BigTrades.cs VolumeAnalysisProfile.cs VolumeFilter.cs MarketVolume.cs \
              OrderFlow.cs Bookmap.cs FairValueGaps.cs OrderBlocks.cs \
              SupportResistance.cs PreviousDayLevels.cs NYPreMarketLevels.cs \
+             TripleA.cs SessionGap.cs SessionVWAP.cs MASeries.cs \
+             BollingerBands.cs ORBPro.cs MarketStructure.cs \
+             LiquiditySuite.cs PremiumDiscountZones.cs \
              dist/SourceOnly/Indicators/
           cp AddOns/SE.cs AddOns/WyckoffRender.cs dist/NT8_Import_Package/AddOns/
           cp AddOns/SE.cs AddOns/WyckoffRender.cs dist/SourceOnly/AddOns/
-          # Sync TradingView scripts
-          mkdir -p dist/NT8_Import_Package/TradingView dist/SourceOnly/TradingView
-          cp AddOns/*.pine dist/NT8_Import_Package/TradingView/
-          cp AddOns/*.pine dist/SourceOnly/TradingView/
 
       - name: Build versioned ZIPs
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
           cd dist
-          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-Import.zip"     NT8_Import_Package
-          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-SourceOnly.zip"  SourceOnly
-          zip -jq "OrderFlow-Suite-TradingView-v${VERSION}.zip"     NT8_Import_Package/TradingView/
+          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-Import.zip"    NT8_Import_Package
+          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-SourceOnly.zip" SourceOnly
 
-      - name: Create versioned release
+      - name: Delete previous releases (keep only latest version)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+          gh release list --repo ${{ github.repository }} --limit 50 --json tagName,id \
+            | jq -r '.[] | select(.tagName != "v'"${VERSION}"'" and .tagName != "latest") | .tagName' \
+            | while read TAG; do
+                echo "Deleting old release: $TAG"
+                gh release delete "$TAG" --repo ${{ github.repository }} --yes --cleanup-tag 2>/dev/null || true
+              done
+
+      - name: Create / update versioned release
         uses: ncipollo/release-action@v1
         with:
           tag: v${{ steps.version.outputs.VERSION }}
@@ -55,43 +68,37 @@ jobs:
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true
-          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip,dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip,dist/OrderFlow-Suite-TradingView-v${{ steps.version.outputs.VERSION }}.zip"
+          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip,dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip"
           body: |
             ## OrderFlow Suite NT8 v${{ steps.version.outputs.VERSION }}
 
-            ### Archivos incluidos
-            | Archivo | Descripción |
+            | Archivo | Descripcion |
             |---------|-------------|
-            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` | Importación directa en NinjaTrader (Tools → Import NinjaScript Add-On) |
-            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip` | Copia manual de archivos .cs (recomendado si hay error de versión) |
-            | `OrderFlow-Suite-TradingView-v${{ steps.version.outputs.VERSION }}.zip` | Scripts Pine para TradingView |
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` | Importacion directa: **Tools -> Import NinjaScript Add-On** |
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip` | Copia manual de `.cs` (recomendado si hay error de version al importar) |
 
-            ### Indicadores NT8
-            Bookmap · OrderFlow · VolumeAnalysisProfile · VolumeFilter · MarketVolume · BigTrades · FairValueGaps · OrderBlocks · SupportResistance · PreviousDayLevels · NYPreMarketLevels
+            ### Indicadores incluidos
+            Bookmap - OrderFlow - VolumeAnalysisProfile - VolumeFilter - MarketVolume - BigTrades - FairValueGaps - OrderBlocks - SupportResistance - PreviousDayLevels - NYPreMarketLevels - TripleA - SessionGap - SessionVWAP - MASeries - BollingerBandsPro - ORBPro - MarketStructure - LiquiditySuite - PremiumDiscountZones
 
-            ### Scripts TradingView
-            OrderFlowScalperPro · SMC/ICT Suite Pro v25
-
-            ### Configuración requerida
-            Activar **Tick Replay** en NinjaTrader: Tools → Options → Market Data.
+            ### Requisito obligatorio
+            Activar **Tick Replay**: Tools -> Options -> Market Data -> Show Tick Replay
 
       - name: Update latest tag
         uses: ncipollo/release-action@v1
         with:
           tag: latest
-          name: "OrderFlow Suite NT8 (latest) — v${{ steps.version.outputs.VERSION }}"
+          name: "OrderFlow Suite NT8 (latest) - v${{ steps.version.outputs.VERSION }}"
           allowUpdates: true
           makeLatest: false
           replacesArtifacts: true
-          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip,dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip,dist/OrderFlow-Suite-TradingView-v${{ steps.version.outputs.VERSION }}.zip"
+          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip,dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip"
           body: |
-            ## OrderFlow Suite NT8 (latest) — v${{ steps.version.outputs.VERSION }}
+            ## OrderFlow Suite NT8 - v${{ steps.version.outputs.VERSION }}
 
-            | Archivo | Descripción |
+            | Archivo | Descripcion |
             |---------|-------------|
-            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` | Importación directa en NinjaTrader |
-            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip` | Copia manual de archivos .cs |
-            | `OrderFlow-Suite-TradingView-v${{ steps.version.outputs.VERSION }}.zip` | Scripts Pine para TradingView |
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` | Importacion directa: **Tools -> Import NinjaScript Add-On** |
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip` | Copia manual de `.cs` |
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
