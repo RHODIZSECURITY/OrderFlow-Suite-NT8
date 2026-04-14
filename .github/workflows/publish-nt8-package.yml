@@ -21,10 +21,10 @@ jobs:
       - name: Ensure ZIP packages are fresh
         run: |
           cd dist
-          rm -f OrderFlow-Suite-NT8-Import.zip OrderFlow-Suite-NT8-SourceOnly.zip OrderFlow-Suite-NT8-Compat-Import.zip
-          zip -rq OrderFlow-Suite-NT8-Import.zip NT8_Import_Package
-          zip -rq OrderFlow-Suite-NT8-SourceOnly.zip SourceOnly
-          cp OrderFlow-Suite-NT8-Import.zip OrderFlow-Suite-NT8-Compat-Import.zip
+          rm -f OrderFlow-Suite-NT8-v1.0.2-Import.zip OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip
+          zip -rq OrderFlow-Suite-NT8-v1.0.2-Import.zip NT8_Import_Package
+          zip -rq OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip SourceOnly
+          cp OrderFlow-Suite-NT8-v1.0.2-Import.zip OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip
 
       - name: Delete previous release and tag
         uses: actions/github-script@v7
@@ -64,14 +64,14 @@ jobs:
           name: OrderFlow-Suite-NT8
           allowUpdates: false
           makeLatest: true
-          artifacts: "dist/OrderFlow-Suite-NT8-Import.zip,dist/OrderFlow-Suite-NT8-SourceOnly.zip,dist/OrderFlow-Suite-NT8-Compat-Import.zip"
+          artifacts: "dist/OrderFlow-Suite-NT8-v1.0.2-Import.zip,dist/OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip,dist/OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip"
           body: |
             Última versión lista para importar en NinjaTrader.
 
             Archivos incluidos:
-            - OrderFlow-Suite-NT8-Import.zip (principal)
-            - OrderFlow-Suite-NT8-SourceOnly.zip (recomendado si hay error de versión al importar)
-            - OrderFlow-Suite-NT8-Compat-Import.zip (compatibilidad)
+            - OrderFlow-Suite-NT8-v1.0.2-Import.zip (principal)
+            - OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip (recomendado si hay error de versión al importar)
+            - OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip (compatibilidad)
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
