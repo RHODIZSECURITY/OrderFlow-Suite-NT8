@@ -19,6 +19,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		private DateTime currentDate;
 		private double preHigh;
 		private double preLow;
+		private double preVwap;
+		private double preCumPV;
+		private double preCumVol;
 		private bool finalized;
 
 		protected override void OnStateChange()
@@ -37,11 +40,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 				ShowLabels = true;
 				DisplayStart = 93000;
 				DisplayEnd = 160000;
-				HighLineStyle = DashStyleHelper.Solid;
-				LowLineStyle = DashStyleHelper.Dash;
-				LineWidth = 2;
+					HighLineStyle = DashStyleHelper.Solid;
+					LowLineStyle = DashStyleHelper.Dash;
+					LineWidth = 2;
+					ShowPMVwapLine = true;
+					PMVwapColor = Brushes.Goldenrod;
+					PMVwapLineStyle = DashStyleHelper.Dot;
+				}
 			}
-		}
 
 		protected override void OnBarUpdate()
 		{
@@ -51,17 +57,24 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			if (currentDate != Time[0].Date)
 			{
 				currentDate = Time[0].Date;
-				preHigh = double.MinValue;
-				preLow = double.MaxValue;
-				finalized = false;
-			}
+					preHigh = double.MinValue;
+					preLow = double.MaxValue;
+					preVwap = 0;
+					preCumPV = 0;
+					preCumVol = 0;
+					finalized = false;
+				}
 
 			int now = ToTime(Time[0]);
 			if (now >= PreMarketStart && now <= PreMarketEnd)
-			{
-				preHigh = Math.Max(preHigh, High[0]);
-				preLow = Math.Min(preLow, Low[0]);
-			}
+				{
+					preHigh = Math.Max(preHigh, High[0]);
+					preLow = Math.Min(preLow, Low[0]);
+					double tp = (High[0] + Low[0] + Close[0]) / 3.0;
+					preCumPV += tp * Volume[0];
+					preCumVol += Volume[0];
+					preVwap = preCumVol > 0 ? preCumPV / preCumVol : preVwap;
+				}
 			else if (now > PreMarketEnd)
 			{
 				finalized = true;
@@ -73,11 +86,13 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			if (now < DisplayStart || now > DisplayEnd)
 			{
 				RemoveDrawObject("NYPMH_" + currentDate.ToString("yyyyMMdd"));
-				RemoveDrawObject("NYPML_" + currentDate.ToString("yyyyMMdd"));
-				RemoveDrawObject("NYPMH_LABEL_" + currentDate.ToString("yyyyMMdd"));
-				RemoveDrawObject("NYPML_LABEL_" + currentDate.ToString("yyyyMMdd"));
-				return;
-			}
+					RemoveDrawObject("NYPML_" + currentDate.ToString("yyyyMMdd"));
+					RemoveDrawObject("NYPMVWAP_" + currentDate.ToString("yyyyMMdd"));
+					RemoveDrawObject("NYPMH_LABEL_" + currentDate.ToString("yyyyMMdd"));
+					RemoveDrawObject("NYPML_LABEL_" + currentDate.ToString("yyyyMMdd"));
+					RemoveDrawObject("NYPMVWAP_LABEL_" + currentDate.ToString("yyyyMMdd"));
+					return;
+				}
 
 			if (preHigh != double.MinValue)
 			{
@@ -92,6 +107,13 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 				lLine.Stroke = new Stroke(LowColor, LowLineStyle, LineWidth);
 				if (ShowLabels)
 					Draw.Text(this, "NYPML_LABEL_" + currentDate.ToString("yyyyMMdd"), "PRE LOW", 0, preLow, LowColor);
+			}
+			if (ShowPMVwapLine && preVwap > 0)
+			{
+				var vLine = Draw.HorizontalLine(this, "NYPMVWAP_" + currentDate.ToString("yyyyMMdd"), preVwap, PMVwapColor);
+				vLine.Stroke = new Stroke(PMVwapColor, PMVwapLineStyle, LineWidth);
+				if (ShowLabels)
+					Draw.Text(this, "NYPMVWAP_LABEL_" + currentDate.ToString("yyyyMMdd"), "PRE VWAP", 0, preVwap, PMVwapColor);
 			}
 		}
 
@@ -149,17 +171,31 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		[Display(Name = "Line width", GroupName = "NY PreMarket", Order = 7)]
 		public int LineWidth { get; set; }
 
+		[NinjaScriptProperty]
+		[Display(Name = "Show PM VWAP", GroupName = "NY PreMarket", Order = 8)]
+		public bool ShowPMVwapLine { get; set; }
+
 		[XmlIgnore]
-		[Display(Name = "High color", GroupName = "NY PreMarket", Order = 8)]
+		[Display(Name = "High color", GroupName = "NY PreMarket", Order = 9)]
 		public Brush HighColor { get; set; }
 		[Browsable(false)]
 		public string HighColorSerializable { get { return BrushToString(HighColor); } set { HighColor = StringToBrush(value); } }
 
 		[XmlIgnore]
-		[Display(Name = "Low color", GroupName = "NY PreMarket", Order = 9)]
+		[Display(Name = "Low color", GroupName = "NY PreMarket", Order = 10)]
 		public Brush LowColor { get; set; }
 		[Browsable(false)]
 		public string LowColorSerializable { get { return BrushToString(LowColor); } set { LowColor = StringToBrush(value); } }
+
+		[NinjaScriptProperty]
+		[Display(Name = "PM VWAP line style", GroupName = "NY PreMarket", Order = 11)]
+		public DashStyleHelper PMVwapLineStyle { get; set; }
+
+		[XmlIgnore]
+		[Display(Name = "PM VWAP color", GroupName = "NY PreMarket", Order = 12)]
+		public Brush PMVwapColor { get; set; }
+		[Browsable(false)]
+		public string PMVwapColorSerializable { get { return BrushToString(PMVwapColor); } set { PMVwapColor = StringToBrush(value); } }
 		#endregion
 	}
 }
