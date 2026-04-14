@@ -17,6 +17,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 {
 	public class PreviousDayLevels : Indicator
 	{
+		private const string SuiteVersion = "v1.0.1-phase1";
 		private double prevHigh;
 		private double prevLow;
 
@@ -25,7 +26,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			if (State == State.SetDefaults)
 			{
 				Description = @"Muestra máximo y mínimo del día previo.";
-				Name = "Previous Day Levels";
+				Name = "Previous Day Levels [" + SuiteVersion + "]";
 				Calculate = Calculate.OnBarClose;
 				IsOverlay = true;
 				IsSuspendedWhileInactive = true;
@@ -98,6 +99,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 
 		#region Properties
+		[Display(Name = "Suite version", GroupName = "Info", Order = 0)]
+		public string VersionInfo { get { return SuiteVersion; } }
+
 		[NinjaScriptProperty]
 		[Display(Name = "Show labels", GroupName = "Previous Day Levels", Order = 0)]
 		public bool ShowLabels { get; set; }

@@ -16,6 +16,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 {
 	public class NYPreMarketLevels : Indicator
 	{
+		private const string SuiteVersion = "v1.0.1-phase1";
 		private DateTime currentDate;
 		private double preHigh;
 		private double preLow;
@@ -29,7 +30,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			if (State == State.SetDefaults)
 			{
 				Description = @"Muestra máximo y mínimo del pre-market de NY.";
-				Name = "NY PreMarket Levels";
+				Name = "NY PreMarket Levels [" + SuiteVersion + "]";
 				Calculate = Calculate.OnEachTick;
 				IsOverlay = true;
 				IsSuspendedWhileInactive = true;
@@ -134,6 +135,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 
 		#region Properties
+		[Display(Name = "Suite version", GroupName = "Info", Order = 0)]
+		public string VersionInfo { get { return SuiteVersion; } }
+
 		[NinjaScriptProperty]
 		[Range(0, 235959)]
 		[Display(Name = "PreMarket Start (HHmmss)", GroupName = "NY PreMarket", Order = 0)]

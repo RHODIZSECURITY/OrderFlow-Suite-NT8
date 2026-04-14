@@ -16,12 +16,13 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 {
 	public class OrderBlocks : Indicator
 	{
+		private const string SuiteVersion = "v1.0.1-phase1";
 		protected override void OnStateChange()
 		{
 			if (State == State.SetDefaults)
 			{
 				Description = @"Detecta Order Blocks básicos usando velas de impulso/engulfing.";
-				Name = "Order Blocks";
+				Name = "Order Blocks [" + SuiteVersion + "]";
 				Calculate = Calculate.OnBarClose;
 				IsOverlay = true;
 				BullColor = Brushes.LimeGreen;
@@ -76,6 +77,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 
 		#region Properties
+		[Display(Name = "Suite version", GroupName = "Info", Order = 0)]
+		public string VersionInfo { get { return SuiteVersion; } }
+
 		[NinjaScriptProperty]
 		[Range(5, 200)]
 		[Display(Name = "Forward bars", GroupName = "Order Blocks", Order = 0)]

@@ -16,6 +16,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 {
 	public class SupportResistance : Indicator
 	{
+		private const string SuiteVersion = "v1.0.1-phase1";
 		private Swing swing;
 
 		protected override void OnStateChange()
@@ -23,7 +24,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			if (State == State.SetDefaults)
 			{
 				Description = @"Soportes y resistencias automáticas basadas en Swing, pintadas como zona.";
-				Name = "Support Resistance";
+				Name = "Support Resistance [" + SuiteVersion + "]";
 				Calculate = Calculate.OnBarClose;
 				IsOverlay = true;
 				Strength = 5;
@@ -85,6 +86,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 
 		#region Properties
+		[Display(Name = "Suite version", GroupName = "Info", Order = 0)]
+		public string VersionInfo { get { return SuiteVersion; } }
+
 		[NinjaScriptProperty]
 		[Range(2, 50)]
 		[Display(Name = "Swing strength", GroupName = "S/R", Order = 0)]
