@@ -23,7 +23,6 @@ jobs:
 
       - name: Sync source files to dist packages
         run: |
-          # Sync root indicators -> dist (single source of truth)
           cp BigTrades.cs VolumeAnalysisProfile.cs VolumeFilter.cs MarketVolume.cs \
              OrderFlow.cs Bookmap.cs FairValueGaps.cs OrderBlocks.cs \
              SupportResistance.cs PreviousDayLevels.cs NYPreMarketLevels.cs \
@@ -31,33 +30,26 @@ jobs:
              BollingerBands.cs ORBPro.cs MarketStructure.cs \
              LiquiditySuite.cs PremiumDiscountZones.cs \
              dist/NT8_Import_Package/Indicators/
-          cp BigTrades.cs VolumeAnalysisProfile.cs VolumeFilter.cs MarketVolume.cs \
-             OrderFlow.cs Bookmap.cs FairValueGaps.cs OrderBlocks.cs \
-             SupportResistance.cs PreviousDayLevels.cs NYPreMarketLevels.cs \
-             TripleA.cs SessionGap.cs SessionVWAP.cs MASeries.cs \
-             BollingerBands.cs ORBPro.cs MarketStructure.cs \
-             LiquiditySuite.cs PremiumDiscountZones.cs \
-             dist/SourceOnly/Indicators/
           cp AddOns/SE.cs AddOns/WyckoffRender.cs dist/NT8_Import_Package/AddOns/
-          cp AddOns/SE.cs AddOns/WyckoffRender.cs dist/SourceOnly/AddOns/
 
-      - name: Build versioned ZIPs
+      - name: Build versioned ZIP
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
           cd dist
-          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-Import.zip"    NT8_Import_Package
-          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-SourceOnly.zip" SourceOnly
+          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-Import.zip" NT8_Import_Package
 
-      - name: Delete previous releases (keep only latest version)
+      - name: Delete all previous releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=${{ steps.version.outputs.VERSION }}
-          gh release list --repo ${{ github.repository }} --limit 50 --json tagName,id \
-            | jq -r '.[] | select(.tagName != "v'"${VERSION}"'" and .tagName != "latest") | .tagName' \
+          gh release list --repo ${{ github.repository }} --limit 100 --json tagName \
+            | jq -r '.[].tagName' \
             | while read TAG; do
-                echo "Deleting old release: $TAG"
-                gh release delete "$TAG" --repo ${{ github.repository }} --yes --cleanup-tag 2>/dev/null || true
+                if [ "$TAG" != "v${VERSION}" ]; then
+                  echo "Deleting release: $TAG"
+                  gh release delete "$TAG" --repo ${{ github.repository }} --yes --cleanup-tag 2>/dev/null || true
+                fi
               done
 
       - name: Create / update versioned release
@@ -68,37 +60,22 @@ jobs:
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true
-          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip,dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip"
+          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip"
           body: |
             ## OrderFlow Suite NT8 v${{ steps.version.outputs.VERSION }}
 
-            | Archivo | Descripcion |
-            |---------|-------------|
-            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` | Importacion directa: **Tools -> Import NinjaScript Add-On** |
-            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip` | Copia manual de `.cs` (recomendado si hay error de version al importar) |
+            ### Instalacion
+            Descarga `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` e importa en NinjaTrader:
+            **Tools → Import NinjaScript Add-On**
 
             ### Indicadores incluidos
-            Bookmap - OrderFlow - VolumeAnalysisProfile - VolumeFilter - MarketVolume - BigTrades - FairValueGaps - OrderBlocks - SupportResistance - PreviousDayLevels - NYPreMarketLevels - TripleA - SessionGap - SessionVWAP - MASeries - BollingerBandsPro - ORBPro - MarketStructure - LiquiditySuite - PremiumDiscountZones
+            Bookmap · OrderFlow · VolumeAnalysisProfile · VolumeFilter · MarketVolume ·
+            BigTrades · FairValueGaps · OrderBlocks · SupportResistance · PreviousDayLevels ·
+            NYPreMarketLevels · TripleA · SessionGap · SessionVWAP · MASeries ·
+            BollingerBandsPro · ORBPro · MarketStructure · LiquiditySuite · PremiumDiscountZones
 
-            ### Requisito obligatorio
-            Activar **Tick Replay**: Tools -> Options -> Market Data -> Show Tick Replay
-
-      - name: Update latest tag
-        uses: ncipollo/release-action@v1
-        with:
-          tag: latest
-          name: "OrderFlow Suite NT8 (latest) - v${{ steps.version.outputs.VERSION }}"
-          allowUpdates: true
-          makeLatest: false
-          replacesArtifacts: true
-          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip,dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip"
-          body: |
-            ## OrderFlow Suite NT8 - v${{ steps.version.outputs.VERSION }}
-
-            | Archivo | Descripcion |
-            |---------|-------------|
-            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` | Importacion directa: **Tools -> Import NinjaScript Add-On** |
-            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip` | Copia manual de `.cs` |
+            ### Requisito
+            Activar **Tick Replay**: Tools → Options → Market Data → Show Tick Replay
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
