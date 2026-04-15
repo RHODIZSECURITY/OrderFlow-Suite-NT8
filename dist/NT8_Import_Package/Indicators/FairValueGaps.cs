@@ -4,6 +4,7 @@
 using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Gui.Tools;
@@ -11,7 +12,7 @@ using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 {
 	public class FairValueGaps : Indicator
 	{
@@ -52,6 +53,22 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 			}
 		}
 
+		private string BrushToString(Brush brush)
+		{
+			return brush == null
+				? string.Empty
+				: new BrushConverter().ConvertToString(null, CultureInfo.InvariantCulture, brush);
+		}
+
+		private Brush StringToBrush(string value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return Brushes.Transparent;
+
+			var converted = new BrushConverter().ConvertFromString(null, CultureInfo.InvariantCulture, value);
+			return converted as Brush ?? Brushes.Transparent;
+		}
+
 		#region Properties
 		[NinjaScriptProperty]
 		[Range(5, 200)]
@@ -67,13 +84,13 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		[Display(Name = "Bull color", GroupName = "FVG", Order = 2)]
 		public Brush BullColor { get; set; }
 		[Browsable(false)]
-		public string BullColorSerializable { get { return Serialize.BrushToString(BullColor); } set { BullColor = Serialize.StringToBrush(value); } }
+		public string BullColorSerializable { get { return BrushToString(BullColor); } set { BullColor = StringToBrush(value); } }
 
 		[XmlIgnore]
 		[Display(Name = "Bear color", GroupName = "FVG", Order = 3)]
 		public Brush BearColor { get; set; }
 		[Browsable(false)]
-		public string BearColorSerializable { get { return Serialize.BrushToString(BearColor); } set { BearColor = Serialize.StringToBrush(value); } }
+		public string BearColorSerializable { get { return BrushToString(BearColor); } set { BearColor = StringToBrush(value); } }
 		#endregion
 	}
 }

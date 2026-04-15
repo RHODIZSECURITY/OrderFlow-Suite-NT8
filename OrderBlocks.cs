@@ -4,6 +4,7 @@
 using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Gui.Tools;
@@ -11,22 +12,25 @@ using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 {
 	public class OrderBlocks : Indicator
 	{
+		private const string SuiteVersion = "v1.0.2";
 		protected override void OnStateChange()
 		{
 			if (State == State.SetDefaults)
 			{
 				Description = @"Detecta Order Blocks básicos usando velas de impulso/engulfing.";
-				Name = "Order Blocks";
+				Name = "Order Blocks [" + SuiteVersion + "]";
 				Calculate = Calculate.OnBarClose;
 				IsOverlay = true;
 				BullColor = Brushes.LimeGreen;
 				BearColor = Brushes.OrangeRed;
 				Opacity = 20;
 				ForwardBars = 30;
+				ShowLabels = true;
+				LabelColor = Brushes.White;
 			}
 		}
 
@@ -40,19 +44,42 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 
 			if (bullishImpulse)
 			{
-				double top = Math.Max(Open[1], Close[1]);
-				double bot = Math.Min(Open[1], Close[1]);
+				double top = High[1];
+				double bot = Low[1];
 				Draw.Rectangle(this, "OB_BULL_" + CurrentBar, false, 1, top, -ForwardBars, bot, BullColor, BullColor, Opacity);
+				if (ShowLabels)
+					Draw.Text(this, "OB_BULL_LABEL_" + CurrentBar, "OB", 0, (top + bot) * 0.5, LabelColor);
 			}
 			else if (bearishImpulse)
 			{
-				double top = Math.Max(Open[1], Close[1]);
-				double bot = Math.Min(Open[1], Close[1]);
+				double top = High[1];
+				double bot = Low[1];
 				Draw.Rectangle(this, "OB_BEAR_" + CurrentBar, false, 1, top, -ForwardBars, bot, BearColor, BearColor, Opacity);
+				if (ShowLabels)
+					Draw.Text(this, "OB_BEAR_LABEL_" + CurrentBar, "OB", 0, (top + bot) * 0.5, LabelColor);
 			}
 		}
 
+		private string BrushToString(Brush brush)
+		{
+			return brush == null
+				? string.Empty
+				: new BrushConverter().ConvertToString(null, CultureInfo.InvariantCulture, brush);
+		}
+
+		private Brush StringToBrush(string value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return Brushes.Transparent;
+
+			var converted = new BrushConverter().ConvertFromString(null, CultureInfo.InvariantCulture, value);
+			return converted as Brush ?? Brushes.Transparent;
+		}
+
 		#region Properties
+		[Display(Name = "Suite version", GroupName = "Info", Order = 0)]
+		public string VersionInfo { get { return SuiteVersion; } }
+
 		[NinjaScriptProperty]
 		[Range(5, 200)]
 		[Display(Name = "Forward bars", GroupName = "Order Blocks", Order = 0)]
@@ -63,17 +90,27 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 		[Display(Name = "Opacity %", GroupName = "Order Blocks", Order = 1)]
 		public int Opacity { get; set; }
 
-		[XmlIgnore]
-		[Display(Name = "Bull color", GroupName = "Order Blocks", Order = 2)]
-		public Brush BullColor { get; set; }
-		[Browsable(false)]
-		public string BullColorSerializable { get { return Serialize.BrushToString(BullColor); } set { BullColor = Serialize.StringToBrush(value); } }
+		[NinjaScriptProperty]
+		[Display(Name = "Show labels", GroupName = "Order Blocks", Order = 2)]
+		public bool ShowLabels { get; set; }
 
 		[XmlIgnore]
-		[Display(Name = "Bear color", GroupName = "Order Blocks", Order = 3)]
+		[Display(Name = "Label color", GroupName = "Order Blocks", Order = 3)]
+		public Brush LabelColor { get; set; }
+		[Browsable(false)]
+		public string LabelColorSerializable { get { return BrushToString(LabelColor); } set { LabelColor = StringToBrush(value); } }
+
+		[XmlIgnore]
+		[Display(Name = "Bull color", GroupName = "Order Blocks", Order = 4)]
+		public Brush BullColor { get; set; }
+		[Browsable(false)]
+		public string BullColorSerializable { get { return BrushToString(BullColor); } set { BullColor = StringToBrush(value); } }
+
+		[XmlIgnore]
+		[Display(Name = "Bear color", GroupName = "Order Blocks", Order = 5)]
 		public Brush BearColor { get; set; }
 		[Browsable(false)]
-		public string BearColorSerializable { get { return Serialize.BrushToString(BearColor); } set { BearColor = Serialize.StringToBrush(value); } }
+		public string BearColorSerializable { get { return BrushToString(BearColor); } set { BearColor = StringToBrush(value); } }
 		#endregion
 	}
 }

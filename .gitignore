@@ -5,3 +5,5 @@
 /order_flow_imgs/
 /volume_analysis_profile_imgs/
 /volume_filter_imgs/
+*.pine
+AddOns/*.pine

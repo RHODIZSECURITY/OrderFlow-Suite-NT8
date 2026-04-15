@@ -43,12 +43,12 @@ También puede utilizarse en otros futuros compatibles con NinjaTrader, pero la 
 ### Opción A: Importar ZIP (rápido)
 
 1. En NinjaTrader abre: **Control Center → Tools → Import → NinjaScript Add-On...**
-2. Selecciona: `OrderFlow-Suite-NT8.1-Import.zip`.
+2. Selecciona: `OrderFlow-Suite-NT8-v1.0.2-Import.zip`.
 3. Reinicia NinjaTrader.
 4. Compila en NinjaScript Editor (`F5`).
 
-> El paquete ZIP principal se genera desde `dist/OrderFlow-Suite-NT8.1-Import.zip`.
-> Si NinjaTrader muestra error de versión al importar, usa el paquete source-only (`dist/OrderFlow-Suite-NT8.1-SourceOnly.zip`) y compila con `F5`.
+> El paquete ZIP principal se genera desde `dist/OrderFlow-Suite-NT8-v1.0.2-Import.zip`.
+> Si NinjaTrader muestra error de versión al importar, usa el paquete source-only (`dist/OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip`) y compila con `F5`.
 
 ### Opción B: Instalación manual
 
@@ -60,7 +60,7 @@ También puede utilizarse en otros futuros compatibles con NinjaTrader, pero la 
 
 ### Opción C: Source-Only (máxima compatibilidad entre builds)
 
-1. Descarga `OrderFlow-Suite-NT8.1-SourceOnly.zip`.
+1. Descarga `OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip`.
 2. Copia `SourceOnly/AddOns/*.cs` en `Documents\NinjaTrader 8\bin\Custom\AddOns\`.
 3. Copia `SourceOnly/Indicators/*.cs` en `Documents\NinjaTrader 8\bin\Custom\Indicators\`.
 4. Compila en NinjaScript Editor (`F5`).
@@ -138,9 +138,9 @@ En un gráfico:
 - `AddOns/` → utilidades internas de cálculo/render.
 - `*.cs` (raíz) → indicadores principales.
 - `dist/NT8_Import_Package/` → paquete listo para importación.
-- `dist/OrderFlow-Suite-NT8.1-Import.zip` → ZIP principal para **Import NinjaScript Add-On**.
-- `dist/OrderFlow-Suite-NT8.1-SourceOnly.zip` → ZIP source-only para copiar/pegar y compilar (evita problemas de versión de import).
-- `dist/WyckoffZen-NT8-Import.zip` → ZIP legado (compatibilidad).
+- `dist/OrderFlow-Suite-NT8-v1.0.2-Import.zip` → ZIP principal para **Import NinjaScript Add-On**.
+- `dist/OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip` → ZIP source-only para copiar/pegar y compilar (evita problemas de versión de import).
+- `dist/OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip` → ZIP legado (compatibilidad).
 - `.github/workflows/publish-nt8-package.yml` → publica automáticamente ZIP en **Releases** y paquete en **GitHub Packages (GHCR)**.
 
 ---

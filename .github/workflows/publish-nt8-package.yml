@@ -2,7 +2,8 @@ name: Publish NT8 Import Package
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - "**"
   workflow_dispatch:
 
 permissions:
@@ -20,26 +21,57 @@ jobs:
       - name: Ensure ZIP packages are fresh
         run: |
           cd dist
-          zip -rq WyckoffZen-NT8-Import.zip NT8_Import_Package
-          zip -rq OrderFlow-Suite-NT8.1-Import.zip NT8_Import_Package
-          zip -rq OrderFlow-Suite-NT8.1-SourceOnly.zip SourceOnly
+          rm -f OrderFlow-Suite-NT8-v1.0.2-Import.zip OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip
+          zip -rq OrderFlow-Suite-NT8-v1.0.2-Import.zip NT8_Import_Package
+          zip -rq OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip SourceOnly
+          cp OrderFlow-Suite-NT8-v1.0.2-Import.zip OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip
 
-      - name: Create/Update latest Release
+      - name: Delete previous release and tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const tagsToDelete = ["latest", "OrderFlow-Suite-NT8"];
+
+            for (const tag of tagsToDelete) {
+              try {
+                const release = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+                core.info(`Deleting existing release id=${release.data.id} tag=${tag}`);
+                await github.rest.repos.deleteRelease({ owner, repo, release_id: release.data.id });
+              } catch (error) {
+                core.info(`No previous release found for tag ${tag}`);
+              }
+
+              try {
+                await github.rest.git.deleteRef({ owner, repo, ref: `tags/${tag}` });
+                core.info(`Deleted previous tag ${tag}`);
+              } catch (error) {
+                core.info(`No previous tag found for ${tag}`);
+              }
+            }
+
+      - name: Recreate latest tag at current commit
+        run: |
+          git tag -f latest "${GITHUB_SHA}"
+          git push origin refs/tags/latest --force
+
+      - name: Create Release
         uses: ncipollo/release-action@v1
         with:
           tag: latest
-          name: OrderFlow Suite NT8.1 (latest)
-          allowUpdates: true
+          commit: ${{ github.sha }}
+          name: OrderFlow-Suite-NT8
+          allowUpdates: false
           makeLatest: true
-          replacesArtifacts: true
-          artifacts: "dist/OrderFlow-Suite-NT8.1-Import.zip,dist/OrderFlow-Suite-NT8.1-SourceOnly.zip,dist/WyckoffZen-NT8-Import.zip"
+          artifacts: "dist/OrderFlow-Suite-NT8-v1.0.2-Import.zip,dist/OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip,dist/OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip"
           body: |
             Última versión lista para importar en NinjaTrader.
 
             Archivos incluidos:
-            - OrderFlow-Suite-NT8.1-Import.zip (principal)
-            - OrderFlow-Suite-NT8.1-SourceOnly.zip (recomendado si hay error de versión al importar)
-            - WyckoffZen-NT8-Import.zip (compatibilidad)
+            - OrderFlow-Suite-NT8-v1.0.2-Import.zip (principal)
+            - OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip (recomendado si hay error de versión al importar)
+            - OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip (compatibilidad)
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -54,4 +86,4 @@ jobs:
           context: .
           file: ./Dockerfile.package
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/orderflow-suite-nt8.1:latest
+          tags: ghcr.io/${{ github.repository_owner }}/orderflow-suite-nt8:latest

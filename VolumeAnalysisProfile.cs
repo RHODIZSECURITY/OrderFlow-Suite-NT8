@@ -46,7 +46,7 @@ public static class _VolumeAnalysisProfileEnums
 	}
 }
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 {
 	public class VolumeAnalysisProfile : Indicator
 	{
@@ -1093,19 +1093,19 @@ namespace NinjaTrader.NinjaScript.Indicators
 {
 	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
 	{
-		private WyckoffZen.VolumeAnalysisProfile[] cacheVolumeAnalysisProfile;
-		public WyckoffZen.VolumeAnalysisProfile VolumeAnalysisProfile(_VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
+		private OrderFlow_Suite_RHODIZ_v1_0_0.VolumeAnalysisProfile[] cacheVolumeAnalysisProfile;
+		public OrderFlow_Suite_RHODIZ_v1_0_0.VolumeAnalysisProfile VolumeAnalysisProfile(_VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
 		{
 			return VolumeAnalysisProfile(Input, _volumeFormula, _volumeRenderInfo, _periodMode, _period, _showPOC, _showPOI, _realtimeHeuristic, _enableMarketProfile, _pOCOpacity, _pOIOpacity, _selectionOpacity, _eraseOpacity, _textOpacity, _textFont, _showText, _minFontWidth, _minFontHeight, _showTotalVolumeInfo, _showDeltaInfo);
 		}
 
-		public WyckoffZen.VolumeAnalysisProfile VolumeAnalysisProfile(ISeries<double> input, _VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
+		public OrderFlow_Suite_RHODIZ_v1_0_0.VolumeAnalysisProfile VolumeAnalysisProfile(ISeries<double> input, _VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
 		{
 			if (cacheVolumeAnalysisProfile != null)
 				for (int idx = 0; idx < cacheVolumeAnalysisProfile.Length; idx++)
 					if (cacheVolumeAnalysisProfile[idx] != null && cacheVolumeAnalysisProfile[idx]._VolumeFormula == _volumeFormula && cacheVolumeAnalysisProfile[idx]._VolumeRenderInfo == _volumeRenderInfo && cacheVolumeAnalysisProfile[idx]._PeriodMode == _periodMode && cacheVolumeAnalysisProfile[idx]._Period == _period && cacheVolumeAnalysisProfile[idx]._ShowPOC == _showPOC && cacheVolumeAnalysisProfile[idx]._ShowPOI == _showPOI && cacheVolumeAnalysisProfile[idx]._RealtimeHeuristic == _realtimeHeuristic && cacheVolumeAnalysisProfile[idx]._EnableMarketProfile == _enableMarketProfile && cacheVolumeAnalysisProfile[idx]._POCOpacity == _pOCOpacity && cacheVolumeAnalysisProfile[idx]._POIOpacity == _pOIOpacity && cacheVolumeAnalysisProfile[idx]._SelectionOpacity == _selectionOpacity && cacheVolumeAnalysisProfile[idx]._EraseOpacity == _eraseOpacity && cacheVolumeAnalysisProfile[idx]._TextOpacity == _textOpacity && cacheVolumeAnalysisProfile[idx]._TextFont == _textFont && cacheVolumeAnalysisProfile[idx]._ShowText == _showText && cacheVolumeAnalysisProfile[idx]._MinFontWidth == _minFontWidth && cacheVolumeAnalysisProfile[idx]._MinFontHeight == _minFontHeight && cacheVolumeAnalysisProfile[idx]._showTotalVolumeInfo == _showTotalVolumeInfo && cacheVolumeAnalysisProfile[idx]._showDeltaInfo == _showDeltaInfo && cacheVolumeAnalysisProfile[idx].EqualsInput(input))
 						return cacheVolumeAnalysisProfile[idx];
-			return CacheIndicator<WyckoffZen.VolumeAnalysisProfile>(new WyckoffZen.VolumeAnalysisProfile(){ _VolumeFormula = _volumeFormula, _VolumeRenderInfo = _volumeRenderInfo, _PeriodMode = _periodMode, _Period = _period, _ShowPOC = _showPOC, _ShowPOI = _showPOI, _RealtimeHeuristic = _realtimeHeuristic, _EnableMarketProfile = _enableMarketProfile, _POCOpacity = _pOCOpacity, _POIOpacity = _pOIOpacity, _SelectionOpacity = _selectionOpacity, _EraseOpacity = _eraseOpacity, _TextOpacity = _textOpacity, _TextFont = _textFont, _ShowText = _showText, _MinFontWidth = _minFontWidth, _MinFontHeight = _minFontHeight, _showTotalVolumeInfo = _showTotalVolumeInfo, _showDeltaInfo = _showDeltaInfo }, input, ref cacheVolumeAnalysisProfile);
+			return CacheIndicator<OrderFlow_Suite_RHODIZ_v1_0_0.VolumeAnalysisProfile>(new OrderFlow_Suite_RHODIZ_v1_0_0.VolumeAnalysisProfile(){ _VolumeFormula = _volumeFormula, _VolumeRenderInfo = _volumeRenderInfo, _PeriodMode = _periodMode, _Period = _period, _ShowPOC = _showPOC, _ShowPOI = _showPOI, _RealtimeHeuristic = _realtimeHeuristic, _EnableMarketProfile = _enableMarketProfile, _POCOpacity = _pOCOpacity, _POIOpacity = _pOIOpacity, _SelectionOpacity = _selectionOpacity, _EraseOpacity = _eraseOpacity, _TextOpacity = _textOpacity, _TextFont = _textFont, _ShowText = _showText, _MinFontWidth = _minFontWidth, _MinFontHeight = _minFontHeight, _showTotalVolumeInfo = _showTotalVolumeInfo, _showDeltaInfo = _showDeltaInfo }, input, ref cacheVolumeAnalysisProfile);
 		}
 	}
 }
@@ -1114,12 +1114,12 @@ namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
 {
 	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
 	{
-		public Indicators.WyckoffZen.VolumeAnalysisProfile VolumeAnalysisProfile(_VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.VolumeAnalysisProfile VolumeAnalysisProfile(_VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
 		{
 			return indicator.VolumeAnalysisProfile(Input, _volumeFormula, _volumeRenderInfo, _periodMode, _period, _showPOC, _showPOI, _realtimeHeuristic, _enableMarketProfile, _pOCOpacity, _pOIOpacity, _selectionOpacity, _eraseOpacity, _textOpacity, _textFont, _showText, _minFontWidth, _minFontHeight, _showTotalVolumeInfo, _showDeltaInfo);
 		}
 
-		public Indicators.WyckoffZen.VolumeAnalysisProfile VolumeAnalysisProfile(ISeries<double> input , _VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.VolumeAnalysisProfile VolumeAnalysisProfile(ISeries<double> input , _VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
 		{
 			return indicator.VolumeAnalysisProfile(input, _volumeFormula, _volumeRenderInfo, _periodMode, _period, _showPOC, _showPOI, _realtimeHeuristic, _enableMarketProfile, _pOCOpacity, _pOIOpacity, _selectionOpacity, _eraseOpacity, _textOpacity, _textFont, _showText, _minFontWidth, _minFontHeight, _showTotalVolumeInfo, _showDeltaInfo);
 		}
@@ -1130,12 +1130,12 @@ namespace NinjaTrader.NinjaScript.Strategies
 {
 	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
 	{
-		public Indicators.WyckoffZen.VolumeAnalysisProfile VolumeAnalysisProfile(_VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.VolumeAnalysisProfile VolumeAnalysisProfile(_VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
 		{
 			return indicator.VolumeAnalysisProfile(Input, _volumeFormula, _volumeRenderInfo, _periodMode, _period, _showPOC, _showPOI, _realtimeHeuristic, _enableMarketProfile, _pOCOpacity, _pOIOpacity, _selectionOpacity, _eraseOpacity, _textOpacity, _textFont, _showText, _minFontWidth, _minFontHeight, _showTotalVolumeInfo, _showDeltaInfo);
 		}
 
-		public Indicators.WyckoffZen.VolumeAnalysisProfile VolumeAnalysisProfile(ISeries<double> input , _VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.VolumeAnalysisProfile VolumeAnalysisProfile(ISeries<double> input , _VolumeAnalysisProfileEnums.Formula _volumeFormula, _VolumeAnalysisProfileEnums.RenderInfo _volumeRenderInfo, VolumeAnalysis.PeriodMode _periodMode, int _period, bool _showPOC, bool _showPOI, bool _realtimeHeuristic, bool _enableMarketProfile, float _pOCOpacity, float _pOIOpacity, float _selectionOpacity, float _eraseOpacity, float _textOpacity, SimpleFont _textFont, bool _showText, float _minFontWidth, float _minFontHeight, bool _showTotalVolumeInfo, bool _showDeltaInfo)
 		{
 			return indicator.VolumeAnalysisProfile(input, _volumeFormula, _volumeRenderInfo, _periodMode, _period, _showPOC, _showPOI, _realtimeHeuristic, _enableMarketProfile, _pOCOpacity, _pOIOpacity, _selectionOpacity, _eraseOpacity, _textOpacity, _textFont, _showText, _minFontWidth, _minFontHeight, _showTotalVolumeInfo, _showDeltaInfo);
 		}
