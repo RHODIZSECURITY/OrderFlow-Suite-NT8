@@ -1,0 +1,1916 @@
+//@version=6
+import TradingView/ta/12 as TVta
+indicator("OrderFlow Scalper Pro", shorttitle="OrderFlow Scalper Pro", overlay=true, max_labels_count=500, max_lines_count=500, max_boxes_count=500)
+
+// ============================================================================
+// ORDERFLOW SCALPER PRO
+// AMT-STYLE DECISION SUPPORT INDICATOR
+// - Market State -> Location -> Aggression -> Trigger
+// - 3A Standard / Premium logic
+// - Setup Matrix + Quality Layer
+// - Trader / Debug dashboard modes
+// - Gap, Pre-Market, VWAP and internal CVD context
+// ============================================================================
+
+// ── CONSTANTES ────────────────────────────────────────────────────────────────
+const string TZ_NY = "America/New_York"
+
+// ── PREMIUM UI: STREAMLINED INPUTS ───────────────────────────────────────────
+const string G_SIGNALS   = "▰▰▰▰▰ SIGNAL ENGINE ▰▰▰▰▰"
+const string G_CONTEXT   = "▰▰▰▰▰ CONTEXT LEVELS ▰▰▰▰▰"
+const string G_VISUALS   = "▰▰▰▰▰ DASHBOARD & VISUALS ▰▰▰▰▰"
+const string G_TRIPLEA   = "▰▰▰▰▰ 3A VISUALS ▰▰▰▰▰"
+const string G_BIGTRADES = "▰▰▰▰▰ BIG TRADES ▰▰▰▰▰"
+const string G_ABS_VIS   = "▰▰▰▰▰ ABSORPTION MARKERS ▰▰▰▰▰"
+
+// ── VISIBLE INPUTS ───────────────────────────────────────────────────────────
+useGapAnalysis        = true
+usePMlevels           = true
+usePMvwap             = true
+
+enablePremiumSetups   = input.bool(true, "Enable Premium Setups", group=G_SIGNALS)
+enableStandardSetups  = input.bool(true, "Enable Standard 3A Setups", group=G_SIGNALS)
+enableSecondarySetups = input.bool(true, "Enable Secondary Setups", group=G_SIGNALS)
+signalSessionFilter   = input.string("NY Cash Only", "Signal Session Filter", options=["Always", "NY Cash Only", "NY + Overnight"], group=G_SIGNALS, tooltip="Restricts signal generation to selected session window. 'NY Cash Only' = 09:30-16:00 ET.")
+dailySignalCap        = input.int(8, "Max Signals Per Day", minval=1, maxval=30, group=G_SIGNALS, tooltip="Limits total signals per day across all tiers to prevent overtrading.")
+
+showPMLines           = input.bool(true, "Show Overnight High/Low", group=G_CONTEXT, tooltip="Plots horizontal lines for Overnight High and Low after pre-market closes.")
+showPMVwapLine        = input.bool(true, "Show Overnight VWAP", group=G_CONTEXT, tooltip="Plots horizontal line for Overnight VWAP.")
+showSessionVWAP       = input.bool(true, "Show Session VWAP", group=G_CONTEXT, tooltip="Plots the anchored session VWAP line.")
+colPMHigh             = input.color(color.new(#FF9800, 30), "Overnight High Color", group=G_CONTEXT)
+colPMLow              = input.color(color.new(#2196F3, 30), "Overnight Low Color", group=G_CONTEXT)
+colPMVwap             = input.color(color.new(#9C27B0, 40), "Overnight VWAP Color", group=G_CONTEXT)
+colSessionVWAP        = input.color(color.new(#FFFFFF, 50), "Session VWAP Color", group=G_CONTEXT)
+
+visShowAbsorption     = input.bool(true, "Show Absorption", group=G_VISUALS)
+showBubbles           = input.bool(true, "Show Big Trades", group=G_VISUALS)
+signalLabelSizeInput  = input.string("Tiny", "Signal Label Size", options=["Tiny", "Small", "Normal"], group=G_VISUALS, tooltip="Adjusts the text size of setup signal labels.")
+dashboardMode         = input.string("Trader", "Dashboard Mode", options=["Off", "Trader", "Debug"], group=G_VISUALS)
+dashboardPosition     = input.string("Top Right", "Dashboard Position", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"], group=G_VISUALS)
+
+showTripleABoxes      = input.bool(true, "Show 3A Boxes", group=G_TRIPLEA, tooltip="Highlights fresh 3A phase boxes for absorption, accumulation and aggression.")
+showTripleALine       = input.bool(true, "Show Absorption Level Line", group=G_TRIPLEA, tooltip="Displays dotted horizontal lines from fresh absorption levels used by the 3A sequence.")
+showTripleALabel      = input.bool(true, "Show 3A Completion Label", group=G_TRIPLEA, tooltip="Shows completion labels when a 3A setup confirms.")
+colBoxAbsorption      = input.color(color.new(color.orange, 75), "Phase 1 Box Color", group=G_TRIPLEA)
+colBoxAccum           = input.color(color.new(color.yellow, 80), "Phase 2 Box Color", group=G_TRIPLEA)
+colBoxAggression      = input.color(color.new(#76FF03, 70), "Phase 3 Box Color", group=G_TRIPLEA)
+colAbsLine            = input.color(color.new(color.orange, 20), "Absorption Level Line", group=G_TRIPLEA)
+
+bigTradesShape        = input.string("●", "Big Trades Shape", options=["●", "◆", "■", "▲", "✕"], group=G_BIGTRADES)
+colBubbleBuyCore      = input.color(color.new(#76FF03, 0), "● Buy Color", group=G_BIGTRADES)
+colBubbleSellCore     = input.color(color.new(#FF1744, 0), "● Sell Color", group=G_BIGTRADES)
+bigTradeMult          = input.float(2.1, "Big Trade Volume Multiplier", minval=1.0, step=0.1, group=G_BIGTRADES, tooltip="Higher = fewer Big Trades. Lower = more sensitive.")
+
+absorptionShape       = input.string("◆", "Absorption Shape", options=["◆", "●", "■", "▲", "✕"], group=G_ABS_VIS)
+colAbsorptionBuy      = input.color(color.new(#2BFF00, 18), "◆ Buy Marker", group=G_ABS_VIS)
+colAbsorptionSell     = input.color(color.new(#FF0000, 18), "◆ Sell Marker", group=G_ABS_VIS)
+absorbVolMult         = input.float(1.95, "Absorption Volume Multiplier", minval=1.0, step=0.1, group=G_ABS_VIS, tooltip="Higher = fewer Absorption markers. Lower = more sensitive.")
+
+// ── FIXED DEFAULTS (HIDDEN FROM INPUTS) ─────────────────────────────────────
+// Context defaults are kept internal on purpose so the UI stays trader-focused.
+// Hidden defaults below are intentional internal context settings, kept off the public UI
+// so the script stays focused on decision support rather than configuration clutter.
+pmSession                  = "0400-0930"
+
+gapMinATR                  = 0.5
+gapFillSignal              = true
+
+useCustomVP                = false
+
+// Phase 3 — hidden Location Engine defaults
+locationTolAtr             = 0.20
+pmVwapTolAtr               = 0.20
+lvnRetestTolAtr            = 0.35
+lvnSeedVolFrac             = 0.65
+lvnSeedRangeAtr            = 0.20
+lvnLookbackBars            = 60
+
+absModuleEnabled           = true
+
+absorbPriceThresh          = 0.3
+
+useImbalances              = true
+imbalanceRatio             = 3.0
+stackedMinCount            = 2
+
+deltaLookback              = 5
+useCDFilter                = true
+cdDivFilter                = true
+deltaProxyMode             = 'Hybrid'
+deltaHybridBodyWeight      = 0.50
+deltaMinRangeTicks         = 1.0
+
+vwapTol                    = 0.5
+useAnchoredVWAP            = true
+
+orbMinutes                 = 30
+useORB                     = false
+
+useRVOL                    = true
+rvolPeriod                 = 20
+rvolMin                    = 1.2
+
+// Visual density is fixed to Standard to keep the public UI clean.
+cleanupObjects             = true
+maxObjectsPerPool            = 120  // Max objects kept per pool (each pool trims its own labels / lines / boxes)
+bubbleLookback             = 100
+bubbleThreshold            = 0.5
+
+// Signal label colors — tiered by conviction
+entryColorPremiumLong      = color.new(#FFD700, 0)      // Gold for Premium
+entryColorPremiumShort     = color.new(#FFD700, 0)
+entryColorStdLong          = color.new(colBubbleBuyCore, 0)
+entryColorStdShort         = color.new(colBubbleSellCore, 0)
+entryColorSecLong          = color.new(colBubbleBuyCore, 40)  // Muted for Secondary
+entryColorSecShort         = color.new(colBubbleSellCore, 40)
+// Legacy aliases for 3A viz
+entryColorLong             = color.new(colBubbleBuyCore, 0)
+entryColorShort            = color.new(colBubbleSellCore, 0)
+
+atr_safe(v) =>
+    math.max(v, syminfo.mintick)
+
+safe_div(num, den) =>
+    den != 0 ? num / den : 0.0
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+f_vis_size(s) =>
+    if s == "tiny"
+        size.tiny
+    else if s == "small"
+        size.small
+    else if s == "normal"
+        size.normal
+    else if s == "large"
+        size.large
+    else
+        size.huge
+
+signalLabelSize = f_vis_size(str.lower(signalLabelSizeInput))
+
+f_marker_shape_bull(sel) =>
+    switch sel
+        '◆' => shape.diamond
+        '■' => shape.square
+        '▲' => shape.triangleup
+        '✕' => shape.xcross
+        => shape.circle
+
+f_marker_shape_bear(sel) =>
+    switch sel
+        '◆' => shape.diamond
+        '■' => shape.square
+        '▲' => shape.triangledown
+        '✕' => shape.xcross
+        => shape.circle
+
+f_dash_position(pos) =>
+    pos == 'Top Left' ? position.top_left :
+     pos == 'Bottom Left' ? position.bottom_left :
+     pos == 'Bottom Right' ? position.bottom_right :
+     position.top_right
+
+f_setup_readable(setupName) =>
+    switch setupName
+        '3A PREMIUM LONG' => '3A Premium Long'
+        '3A PREMIUM SHORT' => '3A Premium Short'
+        '3A LONG' => '3A Standard Long'
+        '3A SHORT' => '3A Standard Short'
+        'LVN PULLBACK LONG' => 'Low Volume Node Long'
+        'LVN PULLBACK SHORT' => 'Low Volume Node Short'
+        'TREND CONTINUATION LONG' => 'Trend Continuation Long'
+        'TREND CONTINUATION SHORT' => 'Trend Continuation Short'
+        'GAP FILL LONG' => 'Gap Fill Long'
+        'GAP FILL SHORT' => 'Gap Fill Short'
+        'PM REACTION LONG' => 'Overnight Reaction Long'
+        'PM REACTION SHORT' => 'Overnight Reaction Short'
+        'REVERSION LONG' => 'Reversion Long'
+        'REVERSION SHORT' => 'Reversion Short'
+        'FAILED BREAKOUT LONG' => 'Failed Breakout Long'
+        'FAILED BREAKOUT SHORT' => 'Failed Breakout Short'
+        => 'No Active Setup'
+
+f_location_readable(locTag) =>
+    switch locTag
+        'LVN' => 'Low Volume Node'
+        'GAP' => 'Gap Area'
+        'PM' => 'Overnight Level'
+        'RECLAIM' => 'Reclaim Zone'
+        'VALUE' => 'Value Area'
+        'PM VWAP' => 'Overnight VWAP'
+        'VWAP' => 'VWAP'
+        => 'No Key Location'
+
+f_phase_readable(phaseRaw) =>
+    switch phaseRaw
+        'A1 LONG' => 'Absorption Long'
+        'A2 LONG' => 'Accumulation Long'
+        'A3 LONG' => 'Aggression Long'
+        'A1 SHORT' => 'Absorption Short'
+        'A2 SHORT' => 'Accumulation Short'
+        'A3 SHORT' => 'Aggression Short'
+        => 'No Active 3A Phase'
+
+resolveAutoTf(int chartSec) =>
+    // FIX: collapsed redundant first two branches (both returned "1")
+    string out = "1"
+    if chartSec < 86400
+        out := "1"
+    else if chartSec == 86400
+        out := "5"
+    else
+        out := "60"
+    out
+
+f_delta_buy_ratio() =>
+    float rangeSafe = math.max(high - low, syminfo.mintick * deltaMinRangeTicks)
+    float bodyBias = close > open ? 1.0 : close < open ? 0.0 : 0.5
+    float closePos = math.max(0.0, math.min(1.0, (close - low) / rangeSafe))
+    float hybrid = deltaHybridBodyWeight * bodyBias + (1.0 - deltaHybridBodyWeight) * closePos
+    float out = deltaProxyMode == 'Body Bias' ? bodyBias : deltaProxyMode == 'Close Position' ? closePos : hybrid
+    math.max(0.0, math.min(1.0, out))
+
+f_micro_bias_from_range(float h, float l, float c) =>
+    float rng = math.max(h - l, syminfo.mintick)
+    float pos = ((c - l) / rng) * 2.0 - 1.0
+    math.max(-1.0, math.min(1.0, pos))
+
+f_cvd_dir_conf(float o, float h, float l, float c, float prevClose) =>
+    float rng = math.max(h - l, syminfo.mintick)
+    float bodyFrac = math.min(math.abs(c - o) / rng, 1.0)
+    float stepFrac = na(prevClose) ? bodyFrac : math.min(math.abs(c - prevClose) / rng, 1.0)
+    float raw = 0.42 + bodyFrac * 0.33 + stepFrac * 0.17
+    math.max(0.30, math.min(1.0, raw))
+
+// Helper VP removido en esta versión.
+
+visShowBubblesFinal  = showBubbles
+visShowTripleABoxes  = showTripleABoxes
+visShowTripleALine   = showTripleALine
+visShowTripleALabel  = showTripleALabel
+// NOTE: above aliases preserved for future extensibility (e.g. visual density modes)
+
+f_trim_lines(array<line> arr, int maxKeep) =>
+    while array.size(arr) > maxKeep
+        line ln = array.shift(arr)
+        line.delete(ln)
+
+f_trim_boxes(array<box> arr, int maxKeep) =>
+    while array.size(arr) > maxKeep
+        box bx = array.shift(arr)
+        box.delete(bx)
+
+f_trim_labels(array<label> arr, int maxKeep) =>
+    while array.size(arr) > maxKeep
+        label lb = array.shift(arr)
+        label.delete(lb)
+
+// VP custom removido en esta versión.
+var array<box>   phaseBoxPool  = array.new_box()
+var array<line>  phaseLinePool = array.new_line()
+var array<label> eventLabelPool = array.new_label()
+
+f_pool_box(box bx, int maxKeep) =>
+    array.push(phaseBoxPool, bx)
+    if cleanupObjects
+        f_trim_boxes(phaseBoxPool, maxKeep)
+
+f_pool_line(line ln, int maxKeep) =>
+    array.push(phaseLinePool, ln)
+    if cleanupObjects
+        f_trim_lines(phaseLinePool, maxKeep)
+
+f_pool_label(label lb, int maxKeep) =>
+    array.push(eventLabelPool, lb)
+    if cleanupObjects
+        f_trim_labels(eventLabelPool, maxKeep)
+
+// =============================================================================
+// CÁLCULOS BÁSICOS
+// =============================================================================
+atr             = ta.atr(14)
+avgVol          = ta.sma(volume, 20)
+atrSafe         = atr_safe(atr)
+
+nyCashSession   = "0930-1600"
+inNY            = not na(time(timeframe.period, nyCashSession, TZ_NY))
+inPM            = not na(time(timeframe.period, pmSession, TZ_NY))
+nyOpen          = inNY and not inNY[1]
+inOvernight     = not na(time(timeframe.period, "1800-0930", TZ_NY))
+nyClose         = not inNY and inNY[1]
+
+dayChange          = ta.change(time("D")) != 0
+contextSessionStart = dayChange
+inSession          = true
+sessionChange      = contextSessionStart
+pmChange           = inPM and not inPM[1]
+pmEnd              = not inPM and inPM[1]
+
+execSession      = inSession
+execSessionStart = contextSessionStart
+
+// =============================================================================
+// [PM1] HIGH / LOW DEL PRE-MARKET
+// =============================================================================
+var float pmHigh      = na
+var float pmLow       = na
+var float pmHighFinal = na
+var float pmLowFinal  = na
+var bool  pmReady     = false
+
+if pmChange
+    pmHigh  := high
+    pmLow   := low
+    pmReady := false
+
+if inPM
+    pmHigh := math.max(na(pmHigh) ? high : pmHigh, high)
+    pmLow  := math.min(na(pmLow)  ? low  : pmLow,  low)
+
+if pmEnd
+    pmHighFinal := pmHigh
+    pmLowFinal  := pmLow
+    pmReady     := true
+
+ticksTolPM      = atrSafe * 0.15
+atPMHigh        = pmReady and math.abs(close - pmHighFinal) < ticksTolPM
+atPMLow         = pmReady and math.abs(close - pmLowFinal)  < ticksTolPM
+abovePMHigh     = pmReady and close > pmHighFinal
+belowPMLow      = pmReady and close < pmLowFinal
+pmHighBreak     = pmReady and close > pmHighFinal and close[1] <= pmHighFinal
+pmLowBreak      = pmReady and close < pmLowFinal  and close[1] >= pmLowFinal
+
+// =============================================================================
+// [PM2] VWAP DEL PRE-MARKET
+// =============================================================================
+var float pmVwapNumer = 0.0
+var float pmVwapDenom = 0.0
+var float pmVwap      = na
+var float pmVwapFinal = na
+
+if pmChange
+    pmVwapNumer := 0.0
+    pmVwapDenom := 0.0
+
+if inPM
+    pmVwapNumer += hlc3 * volume
+    pmVwapDenom += volume
+    pmVwap      := pmVwapDenom > 0 ? pmVwapNumer / pmVwapDenom : na
+
+if pmEnd
+    pmVwapFinal := pmVwap
+
+// =============================================================================
+// [PM4] SESSION / OVERNIGHT GAP CONTEXT
+// =============================================================================
+var float prevRthClose = na
+var float gapSize      = na
+var bool  gapUp        = false
+var bool  gapDown      = false
+var bool  gapFilled    = false
+var float gapTarget    = na
+bool isFuturesAsset = syminfo.type == 'futures'
+
+// Capture the last close of each session on the TRANSITION bar.
+// nyClose fires on the first bar AFTER NY ends, so close[1] is the last NY bar's close.
+// pmEnd fires on the first bar AFTER PM ends, so close[1] is the last PM bar's close.
+if nyClose
+    prevRthClose := close[1]
+
+bool gapEvent = false
+float gapReference = na
+
+// For futures: detect gap by TIME GAP between bars, not session transitions.
+// overnightOpen fails on holidays/weekends because both the last bar before the
+// break and the first bar after it fall within the "1800-0930" session window,
+// so the transition is never detected.
+// Instead, any bar with > 10x normal spacing means a trading halt occurred
+// (daily maintenance = 60 min, weekends = 48h, holidays = variable).
+int barGapMs = int(time - time[1])
+int normalMs = timeframe.in_seconds(timeframe.period) * 1000
+bool futuresSessionGap = isFuturesAsset and barGapMs > normalMs * 10 and not na(close[1])
+
+if futuresSessionGap
+    gapEvent := true
+    gapReference := close[1]
+else if nyOpen
+    if not na(prevRthClose)
+        gapEvent := true
+        gapReference := prevRthClose
+    else if not na(close[1])
+        gapEvent := true
+        gapReference := close[1]
+
+if gapEvent and not na(gapReference)
+    gapSize   := open - gapReference
+    gapUp     := gapSize >  atrSafe * gapMinATR
+    gapDown   := gapSize < -atrSafe * gapMinATR
+    gapTarget := gapReference
+    gapFilled := false
+// Reset stale gap data at next NY open if no new gap was detected.
+// This prevents yesterday's gap from lingering. Done AFTER detection so
+// a new gap on this bar is preserved.
+else if nyOpen and not gapEvent
+    gapSize   := na
+    gapUp     := false
+    gapDown   := false
+    gapFilled := false
+    gapTarget := na
+
+if gapUp and not gapFilled and close <= gapTarget
+    gapFilled := true
+if gapDown and not gapFilled and close >= gapTarget
+    gapFilled := true
+
+gapFillLong  = useGapAnalysis and gapFillSignal and gapDown and not gapFilled and close < gapTarget and close > close[1]
+gapFillShort = useGapAnalysis and gapFillSignal and gapUp   and not gapFilled and close > gapTarget and close < close[1]
+
+// =============================================================================
+// [PM3] VOLUME PROFILE CUSTOM REMOVIDO
+// =============================================================================
+// El usuario utiliza SVP HD y VRVP nativos de TradingView.
+// Se conservan placeholders para no romper la lógica restante del indicador.
+// FIX: se añaden fallbacks internos para que el modo REVERSION no quede muerto
+// cuando el VP custom está desactivado.
+float poc  = na
+float vah  = na
+float val  = na
+float dynPOC = na
+bool outsideVA         = false
+bool nearPOC           = false
+bool atVAL             = false
+bool atVAH             = false
+bool nearDynPOC        = false
+bool lvn_reaction_bull = false
+bool lvn_reaction_bear = false
+var float lastLVNPrice = na
+var int   lastLVNBar   = na
+bool lvnFresh          = false
+bool atLVNZone         = false
+bool vpContextReady    = useCustomVP and (not na(poc) or not na(dynPOC) or not na(vah) or not na(val))
+
+// =============================================================================
+// DELTA / INTERNAL CVD ENGINE (HYBRID)
+// =============================================================================
+deltaBuyRatio   = f_delta_buy_ratio()
+proxyBuyVolume  = volume * deltaBuyRatio
+proxySellVolume = math.max(volume - proxyBuyVolume, 0)
+proxyDelta      = proxyBuyVolume - proxySellVolume
+
+int cvdChartSec = timeframe.in_seconds(timeframe.period)
+string cvdLowerTf = resolveAutoTf(cvdChartSec)
+[cvdBarO_raw, cvdBarH_raw, cvdBarL_raw, cvdBarC_raw] = TVta.requestVolumeDelta(cvdLowerTf, timeframe.period)
+[cvdUp_raw, cvdDown_raw, cvdDelta_raw] = TVta.requestUpAndDownVolume(cvdLowerTf)
+
+bool cvdOfficialOk = not na(cvdBarC_raw) and not na(cvdDelta_raw)
+
+var int   cvdCarryPol   = 0
+var float cvdCarryClose = na
+if execSessionStart or barstate.isfirst
+    cvdCarryPol := 0
+    cvdCarryClose := na
+
+array<float> cvdLtfO = not cvdOfficialOk ? request.security_lower_tf(syminfo.tickerid, cvdLowerTf, open) : array.new_float()
+array<float> cvdLtfH = not cvdOfficialOk ? request.security_lower_tf(syminfo.tickerid, cvdLowerTf, high) : array.new_float()
+array<float> cvdLtfL = not cvdOfficialOk ? request.security_lower_tf(syminfo.tickerid, cvdLowerTf, low) : array.new_float()
+array<float> cvdLtfC = not cvdOfficialOk ? request.security_lower_tf(syminfo.tickerid, cvdLowerTf, close) : array.new_float()
+array<float> cvdLtfV = not cvdOfficialOk ? request.security_lower_tf(syminfo.tickerid, cvdLowerTf, volume) : array.new_float()
+
+float cvdManH = 0.0
+float cvdManL = 0.0
+float cvdManC = 0.0
+float cvdManUp = 0.0
+float cvdManDown = 0.0
+float cvdManDelta = 0.0
+
+if not cvdOfficialOk
+    if array.size(cvdLtfC) > 0
+        int n = array.size(cvdLtfC)
+        int prevPol = cvdCarryPol
+        float path = 0.0
+        for i = 0 to n - 1
+            float o = i < array.size(cvdLtfO) ? array.get(cvdLtfO, i) : open
+            float h = i < array.size(cvdLtfH) ? array.get(cvdLtfH, i) : high
+            float l = i < array.size(cvdLtfL) ? array.get(cvdLtfL, i) : low
+            float c = i < array.size(cvdLtfC) ? array.get(cvdLtfC, i) : close
+            float v = i < array.size(cvdLtfV) ? array.get(cvdLtfV, i) : volume
+
+            float refPrevClose = i > 0 ? array.get(cvdLtfC, i - 1) : cvdCarryClose
+            float signedWeight = 0.0
+            int pol = prevPol
+            float dirConf = f_cvd_dir_conf(o, h, l, c, refPrevClose)
+            if c > o
+                pol := 1
+                signedWeight := dirConf
+            else if c < o
+                pol := -1
+                signedWeight := -dirConf
+            else if not na(refPrevClose)
+                if c > refPrevClose
+                    pol := 1
+                    signedWeight := dirConf * 0.82
+                else if c < refPrevClose
+                    pol := -1
+                    signedWeight := -dirConf * 0.82
+
+            if signedWeight == 0.0
+                float microBias = f_micro_bias_from_range(h, l, c)
+                if math.abs(microBias) >= 0.35
+                    pol := microBias > 0 ? 1 : -1
+                    signedWeight := microBias * 0.28
+
+            float d = signedWeight * v
+            path += d
+            cvdManDelta += d
+            cvdManH := math.max(cvdManH, path)
+            cvdManL := math.min(cvdManL, path)
+            if d > 0
+                cvdManUp += math.abs(d)
+            else if d < 0
+                cvdManDown += math.abs(d)
+
+            if signedWeight != 0
+                prevPol := pol
+            cvdCarryClose := c
+
+        cvdCarryPol := prevPol
+        cvdManC := cvdManDelta
+    else
+        cvdManUp := proxyBuyVolume
+        cvdManDown := proxySellVolume
+        cvdManDelta := proxyDelta
+        cvdManH := math.max(0.0, proxyDelta)
+        cvdManL := math.min(0.0, proxyDelta)
+        cvdManC := proxyDelta
+        cvdCarryPol := proxyDelta > 0 ? 1 : proxyDelta < 0 ? -1 : cvdCarryPol
+        cvdCarryClose := close
+
+delta       = cvdOfficialOk ? cvdDelta_raw : cvdManDelta
+barDeltaHigh  = cvdOfficialOk ? cvdBarH_raw : cvdManH
+barDeltaLow   = cvdOfficialOk ? cvdBarL_raw : cvdManL
+barDeltaClose = cvdOfficialOk ? cvdBarC_raw : cvdManC
+
+smoothDelta = ta.sma(delta, deltaLookback)
+absDeltaSma20 = ta.sma(math.abs(delta), 20)
+buyersControl  = smoothDelta > 0 and smoothDelta > smoothDelta[1]
+sellersControl = smoothDelta < 0 and smoothDelta < smoothDelta[1]
+
+// =============================================================================
+// CUMULATIVE DELTA DE SESIÓN (INTERNAL ONLY)
+// =============================================================================
+var float cumulativeDelta = 0.0
+var float cdSessionHigh   = 0.0
+var float cdSessionLow    = 0.0
+
+if execSessionStart
+    cumulativeDelta := 0.0
+    cdSessionHigh   := 0.0
+    cdSessionLow    := 0.0
+
+if execSession and not na(barDeltaClose)
+    cumulativeDelta += barDeltaClose
+    cdSessionHigh   := math.max(cdSessionHigh, cumulativeDelta)
+    cdSessionLow    := math.min(cdSessionLow, cumulativeDelta)
+
+cvdSlopeFast = ta.ema(cumulativeDelta - nz(cumulativeDelta[1]), 5)
+cvdSlopeSlow = ta.ema(cumulativeDelta - nz(cumulativeDelta[1]), 13)
+cvdBullBias  = cumulativeDelta > ta.ema(cumulativeDelta, 8) and cvdSlopeFast >= 0
+cvdBearBias  = cumulativeDelta < ta.ema(cumulativeDelta, 8) and cvdSlopeFast <= 0
+cdBullControl = cvdBullBias or (cvdSlopeFast > 0 and cvdSlopeSlow > 0)
+cdBearControl = cvdBearBias or (cvdSlopeFast < 0 and cvdSlopeSlow < 0)
+cdDivBull     = close < close[1] and cumulativeDelta > cumulativeDelta[1]
+cdDivBear     = close > close[1] and cumulativeDelta < cumulativeDelta[1]
+// cdImpulse: strong one-sided delta. Second condition tightened to require above-avg volume
+// to prevent low-vol bars with tiny delta ranges from qualifying.
+cdImpulseBull = delta > absDeltaSma20 * 1.25 or (barDeltaClose > 0 and barDeltaClose >= math.abs(barDeltaHigh - barDeltaLow) * 0.60 and volume > avgVol)
+cdImpulseBear = delta < -absDeltaSma20 * 1.25 or (barDeltaClose < 0 and math.abs(barDeltaClose) >= math.abs(barDeltaHigh - barDeltaLow) * 0.60 and volume > avgVol)
+cdLongOK      = not useCDFilter or cdBullControl or cdImpulseBull or (cdDivFilter and cdDivBull)
+cdShortOK     = not useCDFilter or cdBearControl or cdImpulseBear or (cdDivFilter and cdDivBear)
+
+// =============================================================================
+// ABSORCIÓN Y GRANDES ÓRDENES
+// =============================================================================
+priceMove       = math.abs(close - open) / atrSafe
+highVolume      = volume > avgVol * absorbVolMult
+smallMove       = priceMove < absorbPriceThresh
+absorption      = absModuleEnabled and highVolume and smallMove
+// FIX: doji absorption — close == open is a classic absorption candle,
+// classify by wick bias (close position within range).
+// Perfect doji (close == midpoint exactly) falls back to previous bar direction.
+absorptionUp    = absorption and (close > open or (close == open and close > (high + low) / 2) or (close == open and close == (high + low) / 2 and close[1] > open[1]))
+absorptionDown  = absorption and (close < open or (close == open and close < (high + low) / 2) or (close == open and close == (high + low) / 2 and close[1] <= open[1]))
+
+var int absorptionCount = 0
+if sessionChange
+    absorptionCount := 0
+else if absorption
+    absorptionCount += 1
+else
+    absorptionCount := 0
+
+big_buy          = absModuleEnabled and volume > avgVol * bigTradeMult and close > open
+big_sell         = absModuleEnabled and volume > avgVol * bigTradeMult and close < open
+
+// =============================================================================
+// IMBALANCES
+// =============================================================================
+candleRange           = math.max(high - low, syminfo.mintick)
+upperHalf             = (high - close) / candleRange
+lowerHalf             = (close - low)  / candleRange
+
+bullImbalance         = useImbalances and lowerHalf > upperHalf * imbalanceRatio and volume > avgVol * 1.5 and close > open
+bearImbalance         = useImbalances and upperHalf > lowerHalf * imbalanceRatio and volume > avgVol * 1.5 and close < open
+
+var int bullImbalanceCount = 0
+var int bearImbalanceCount = 0
+if sessionChange
+    bullImbalanceCount := 0
+    bearImbalanceCount := 0
+if bullImbalance
+    bullImbalanceCount += 1
+    bearImbalanceCount := 0
+else if bearImbalance
+    bearImbalanceCount += 1
+    bullImbalanceCount := 0
+else
+    bullImbalanceCount := 0
+    bearImbalanceCount := 0
+
+stackedBullImbalance = bullImbalanceCount >= stackedMinCount
+stackedBearImbalance = bearImbalanceCount >= stackedMinCount
+
+// =============================================================================
+// LIGHTWEIGHT LVN ENGINE (INTERNAL LOCATION CONTEXT)
+// =============================================================================
+lowVolBaseline = ta.sma(volume, 50)
+rangeBaseline  = ta.sma(high - low, 20)
+lvnSeed = volume < lowVolBaseline * lvnSeedVolFrac and (high - low) > atrSafe * lvnSeedRangeAtr and (high - low) >= rangeBaseline * 0.75
+
+if execSessionStart
+    lastLVNPrice := na
+    lastLVNBar   := na
+
+if lvnSeed
+    lastLVNPrice := hlc3
+    lastLVNBar   := bar_index
+
+lvnFresh  := not na(lastLVNBar) and (bar_index - lastLVNBar) <= lvnLookbackBars
+atLVNZone := lvnFresh and not na(lastLVNPrice) and math.abs(close - lastLVNPrice) <= atrSafe * lvnRetestTolAtr
+lvn_reaction_bull := atLVNZone and (absorptionUp or big_buy or buyersControl or cdImpulseBull) and close >= lastLVNPrice
+lvn_reaction_bear := atLVNZone and (absorptionDown or big_sell or sellersControl or cdImpulseBear) and close <= lastLVNPrice
+
+// =============================================================================
+// TRIPLE-A — BASE
+// =============================================================================
+rangeSize       = ta.highest(high, 10) - ta.lowest(low, 10)
+avgRange        = ta.sma(rangeSize, 50)
+contraction     = rangeSize < avgRange * 0.6
+expansion       = rangeSize > avgRange * 1.2 and volume > avgVol * 1.5
+
+_vwapEarly      = ta.vwap(hlc3)
+nearVWAP        = math.abs(close - _vwapEarly) < atrSafe * vwapTol
+aboveVWAP       = close > _vwapEarly
+belowVWAP       = close < _vwapEarly
+
+// ctx/reversion/absAtKey initial assignments removed — all overwritten after anchored VWAP.
+// Declarations moved to post-VWAP block (lines ~780+).
+ctxNearPOC        = false
+ctxAtVAL          = false
+ctxAtVAH          = false
+ctxReversionLong  = false
+ctxReversionShort = false
+reversionZoneLong  = false
+reversionZoneShort = false
+absAtKeyLevelLong  = false
+absAtKeyLevelShort = false
+recentAbsAtKeyLong  = false
+recentAbsAtKeyShort = false
+
+recentAbsorptionUp   = ta.barssince(absorptionUp)   <= 5
+recentAbsorptionDown = ta.barssince(absorptionDown) <= 5
+
+aggressiveBuy        = expansion and close > open and smoothDelta > 0 and cdBullControl
+aggressiveSell       = expansion and close < open and smoothDelta < 0 and cdBearControl
+
+// Favio 3A: Phase 3 trigger is lighter than full aggressiveBuy.
+// After absorption + accumulation, the breakout bar needs directional intent + order flow,
+// but NOT the full 10-bar range expansion (which is nearly impossible right after compression).
+// Requires: directional close + volume above average + delta pressure from a real event.
+float _bodyDom3A = safe_div(math.abs(close - open), math.max(high - low, syminfo.mintick))
+bool tripleAAggrBull = close > open and volume > avgVol * 1.3 and _bodyDom3A >= 0.40 and (cdImpulseBull or big_buy or buyersControl)
+bool tripleAAggrBear = close < open and volume > avgVol * 1.3 and _bodyDom3A >= 0.40 and (cdImpulseBear or big_sell or sellersControl)
+
+var int tripleAPhaseLong  = 0
+var int tripleAPhaseShort = 0
+var int tripleABarsLong   = 0
+var int tripleABarsShort  = 0
+
+if execSessionStart
+    tripleAPhaseLong  := 0
+    tripleAPhaseShort := 0
+    tripleABarsLong   := 0
+    tripleABarsShort  := 0
+
+// ATR-scaled 3A timeout — adapts to volatility instead of fixed 10 bars.
+float atrSma50 = ta.sma(atrSafe, 50)
+int tripleATimeout = atrSafe > atrSma50 * 1.2 ? 14 : atrSafe < atrSma50 * 0.8 ? 8 : 10
+
+if absorptionUp and tripleAPhaseLong < 1
+    tripleAPhaseLong := 1
+    tripleABarsLong  := 0
+else if tripleAPhaseLong == 1 and contraction
+    tripleAPhaseLong := 2
+    tripleABarsLong  := 0
+else if tripleAPhaseLong == 2 and (tripleAAggrBull or aggressiveBuy)
+    tripleAPhaseLong := 3
+    tripleABarsLong  := 0
+else if tripleAPhaseLong == 3
+    tripleAPhaseLong := 0
+else if tripleAPhaseLong > 0
+    tripleABarsLong += 1
+    if tripleABarsLong > tripleATimeout
+        tripleAPhaseLong := 0
+        tripleABarsLong  := 0
+
+if absorptionDown and tripleAPhaseShort < 1
+    tripleAPhaseShort := 1
+    tripleABarsShort  := 0
+else if tripleAPhaseShort == 1 and contraction
+    tripleAPhaseShort := 2
+    tripleABarsShort  := 0
+else if tripleAPhaseShort == 2 and (tripleAAggrBear or aggressiveSell)
+    tripleAPhaseShort := 3
+    tripleABarsShort  := 0
+else if tripleAPhaseShort == 3
+    tripleAPhaseShort := 0
+else if tripleAPhaseShort > 0
+    tripleABarsShort += 1
+    if tripleABarsShort > tripleATimeout
+        tripleAPhaseShort := 0
+        tripleABarsShort  := 0
+
+// =============================================================================
+// ANCHORED VWAP
+// =============================================================================
+var float avwapNumer   = 0.0
+var float avwapDenom   = 0.0
+var float anchoredVWAP = na
+
+if execSessionStart
+    avwapNumer := 0.0
+    avwapDenom := 0.0
+
+if execSession
+    avwapNumer   += hlc3 * volume
+    avwapDenom   += volume
+    anchoredVWAP := avwapDenom > 0 ? avwapNumer / avwapDenom : na
+else
+    anchoredVWAP := na
+
+vwapStd   = ta.vwap(hlc3)
+vwapValue = useAnchoredVWAP and not na(anchoredVWAP) ? anchoredVWAP : vwapStd
+aboveVWAP := close > vwapValue
+belowVWAP := close < vwapValue
+nearVWAP  := math.abs(close - vwapValue) < atrSafe * vwapTol
+
+ctxNearPOC := vpContextReady ? (nearPOC or nearDynPOC) : nearVWAP
+ctxAtVAL   := vpContextReady ? atVAL : (usePMlevels ? atPMLow : nearVWAP)
+ctxAtVAH   := vpContextReady ? atVAH : (usePMlevels ? atPMHigh : nearVWAP)
+ctxReversionLong  := vpContextReady ? (atVAL or outsideVA) : ((usePMlevels and atPMLow) or nearVWAP)
+ctxReversionShort := vpContextReady ? (atVAH or outsideVA) : ((usePMlevels and atPMHigh) or nearVWAP)
+reversionZoneLong  := ctxReversionLong
+reversionZoneShort := ctxReversionShort
+absAtKeyLevelLong  := absorptionUp   and (ctxNearPOC or ctxAtVAL or (usePMlevels and atPMLow)  or nearVWAP or lvn_reaction_bull)
+absAtKeyLevelShort := absorptionDown and (ctxNearPOC or ctxAtVAH or (usePMlevels and atPMHigh) or nearVWAP or lvn_reaction_bear)
+recentAbsAtKeyLong := ta.barssince(absAtKeyLevelLong)  <= 5
+recentAbsAtKeyShort := ta.barssince(absAtKeyLevelShort) <= 5
+
+// =============================================================================
+// RVOL
+// =============================================================================
+rvolBase = ta.sma(volume, rvolPeriod)
+rvol     = safe_div(volume, rvolBase)
+highRVOL = rvol >= rvolMin
+rvolOK   = not useRVOL or highRVOL  // NOTE: computed but not wired to any setup gate yet
+
+// =============================================================================
+// ORB
+// =============================================================================
+var float orbHigh    = na
+var float orbLow     = na
+var bool  orbDefined = false
+
+if execSessionStart
+    orbHigh    := na
+    orbLow     := na
+    orbDefined := false
+
+tfSec            = timeframe.in_seconds(timeframe.period)
+orbMinutesEff    = orbMinutes
+orbBars          = math.max(1, int(math.round(orbMinutesEff * 60 / tfSec)))
+sessionBars      = ta.barssince(execSessionStart)
+
+if execSession and not na(sessionBars) and sessionBars < orbBars
+    orbHigh    := na(orbHigh) ? high : math.max(orbHigh, high)
+    orbLow     := na(orbLow)  ? low  : math.min(orbLow,  low)
+
+orbDefined := execSession and not na(sessionBars) and sessionBars >= orbBars - 1 and not na(orbHigh) and not na(orbLow)
+
+orbBreakoutLong  = useORB and orbDefined and close > orbHigh and close[1] <= orbHigh
+orbBreakoutShort = useORB and orbDefined and close < orbLow  and close[1] >= orbLow
+
+// =============================================================================
+// SETUPS COMPLETOS (incluyendo PM)
+// =============================================================================
+ctxBalancePrice  = vpContextReady ? (not na(dynPOC) ? dynPOC : poc) : vwapValue
+valBounce         = ctxAtVAL and absorptionUp   and buyersControl
+vahBounce         = ctxAtVAH and absorptionDown and sellersControl
+pocBounceLong     = ctxNearPOC and absorptionUp   and buyersControl  and close > ctxBalancePrice
+pocBounceShort    = ctxNearPOC and absorptionDown and sellersControl and close < ctxBalancePrice
+pocBreakLong      = not na(ctxBalancePrice) and close > ctxBalancePrice and close[1] <= ctxBalancePrice and big_buy
+pocBreakShort     = not na(ctxBalancePrice) and close < ctxBalancePrice and close[1] >= ctxBalancePrice and big_sell
+
+pmHighBreakLong   = usePMlevels and pmHighBreak and big_buy  and cdLongOK
+pmLowBreakShort   = usePMlevels and pmLowBreak  and big_sell and cdShortOK
+pmHighBounceShort = usePMlevels and atPMHigh and absorptionDown and sellersControl
+pmLowBounceLong   = usePMlevels and atPMLow  and absorptionUp   and buyersControl
+
+pmVwapBounceLong  = usePMvwap and not na(pmVwapFinal) and math.abs(close - pmVwapFinal) < atrSafe * 0.2 and absorptionUp   and buyersControl
+pmVwapBounceShort = usePMvwap and not na(pmVwapFinal) and math.abs(close - pmVwapFinal) < atrSafe * 0.2 and absorptionDown and sellersControl
+
+// =============================================================================
+// AMT ENGINES — MARKET STATE / LOCATION / AGGRESSION
+// =============================================================================
+// FIX: remove redundant `or nearVWAP` — already included via ctxNearPOC fallback
+bool locAtValueLong     = ctxNearPOC or ctxAtVAL
+bool locAtValueShort    = ctxNearPOC or ctxAtVAH
+bool locAtLVNLong       = atLVNZone or lvn_reaction_bull
+bool locAtLVNShort      = atLVNZone or lvn_reaction_bear
+bool locAtGapAreaLong   = useGapAnalysis and (gapFillLong or (gapDown and not gapFilled and not na(gapTarget) and math.abs(close - gapTarget) <= atrSafe * (locationTolAtr + 0.15)))
+bool locAtGapAreaShort  = useGapAnalysis and (gapFillShort or (gapUp and not gapFilled and not na(gapTarget) and math.abs(close - gapTarget) <= atrSafe * (locationTolAtr + 0.15)))
+bool locAtPMLong        = usePMlevels and (atPMLow or pmLowBounceLong or pmHighBreakLong)
+bool locAtPMShort       = usePMlevels and (atPMHigh or pmHighBounceShort or pmLowBreakShort)
+bool locAtPMVWAPLong    = usePMvwap and not na(pmVwapFinal) and math.abs(close - pmVwapFinal) <= atrSafe * pmVwapTolAtr
+bool locAtPMVWAPShort   = usePMvwap and not na(pmVwapFinal) and math.abs(close - pmVwapFinal) <= atrSafe * pmVwapTolAtr
+bool locAtVWAPLong      = nearVWAP or (aboveVWAP and low <= vwapValue + atrSafe * locationTolAtr)
+bool locAtVWAPShort     = nearVWAP or (belowVWAP and high >= vwapValue - atrSafe * locationTolAtr)
+bool locAtReclaimLong   = not na(ctxBalancePrice) and low <= ctxBalancePrice + atrSafe * locationTolAtr and close > ctxBalancePrice and close[1] <= ctxBalancePrice
+bool locAtReclaimShort  = not na(ctxBalancePrice) and high >= ctxBalancePrice - atrSafe * locationTolAtr and close < ctxBalancePrice and close[1] >= ctxBalancePrice
+bool locMidNowhereLong  = not (locAtValueLong or locAtLVNLong or locAtGapAreaLong or locAtPMLong or locAtPMVWAPLong or locAtReclaimLong or locAtVWAPLong)
+bool locMidNowhereShort = not (locAtValueShort or locAtLVNShort or locAtGapAreaShort or locAtPMShort or locAtPMVWAPShort or locAtReclaimShort or locAtVWAPShort)
+
+string locationLongTag = locAtLVNLong ? 'LVN' : locAtGapAreaLong ? 'GAP' : locAtPMLong ? 'PM' : locAtReclaimLong ? 'RECLAIM' : locAtValueLong ? 'VALUE' : locAtPMVWAPLong ? 'PM VWAP' : locAtVWAPLong ? 'VWAP' : 'NONE'
+string locationShortTag = locAtLVNShort ? 'LVN' : locAtGapAreaShort ? 'GAP' : locAtPMShort ? 'PM' : locAtReclaimShort ? 'RECLAIM' : locAtValueShort ? 'VALUE' : locAtPMVWAPShort ? 'PM VWAP' : locAtVWAPShort ? 'VWAP' : 'NONE'
+
+// FIX: prevent VWAP double-counting — if locAtValue is true only because of
+// VWAP proximity (ctxNearPOC = nearVWAP), don't also award +2 from value;
+// let locAtVWAPLong carry the +1 instead.
+locationLongScore =
+     (locAtLVNLong ? 2 : 0) +
+     (locAtValueLong and not locAtVWAPLong ? 2 : 0) +
+     (locAtReclaimLong ? 2 : 0) +
+     (locAtGapAreaLong ? 2 : 0) +
+     (locAtPMLong ? 1 : 0) +
+     (locAtPMVWAPLong ? 1 : 0) +
+     (locAtVWAPLong ? 1 : 0) +
+     (locMidNowhereLong ? -1 : 0)
+
+locationShortScore =
+     (locAtLVNShort ? 2 : 0) +
+     (locAtValueShort and not locAtVWAPShort ? 2 : 0) +
+     (locAtReclaimShort ? 2 : 0) +
+     (locAtGapAreaShort ? 2 : 0) +
+     (locAtPMShort ? 1 : 0) +
+     (locAtPMVWAPShort ? 1 : 0) +
+     (locAtVWAPShort ? 1 : 0) +
+     (locMidNowhereShort ? -1 : 0)
+
+float bodyDominance = safe_div(math.abs(close - open), math.max(high - low, syminfo.mintick))
+float volParticipation = safe_div(volume, avgVol)
+bool aggressionLocationLong = locAtLVNLong or locAtGapAreaLong or locAtPMLong or locAtPMVWAPLong or locAtReclaimLong or locAtValueLong or locAtVWAPLong
+bool aggressionLocationShort = locAtLVNShort or locAtGapAreaShort or locAtPMShort or locAtPMVWAPShort or locAtReclaimShort or locAtValueShort or locAtVWAPShort
+bool bullDirectionalBody = close > open and bodyDominance >= 0.45
+bool bearDirectionalBody = close < open and bodyDominance >= 0.45
+bool bullParticipation = volParticipation >= 1.15
+bool bearParticipation = volParticipation >= 1.15
+bool bullDeltaPressure = buyersControl or cdBullControl or cdImpulseBull or cvdSlopeFast > 0
+bool bearDeltaPressure = sellersControl or cdBearControl or cdImpulseBear or cvdSlopeFast < 0
+// FIX: Favio 3A alignment — absorption is Phase 1 (passive), NOT Phase 3 (aggression).
+// Aggression = institutional directional commitment: big prints, stacked imbalances, expansion, or delta impulse.
+// cdImpulseBull/Bear = heavy one-sided order flow (delta > 1.25x avg), which IS aggression per Favio.
+bool bullAggEvent = big_buy or aggressiveBuy or stackedBullImbalance or cdImpulseBull
+bool bearAggEvent = big_sell or aggressiveSell or stackedBearImbalance or cdImpulseBear
+
+// FIX: Favio alignment — absorption removed from aggression score.
+// Aggression score now reflects pure Phase 3 events only.
+aggrBullScore =
+     (big_buy ? 2 : 0) +
+     (aggressiveBuy ? 2 : 0) +
+     (stackedBullImbalance ? 2 : 0) +
+     (buyersControl ? 1 : 0) +
+     (cdBullControl ? 1 : 0) +
+     (cdImpulseBull ? 2 : 0) +
+     (bullDirectionalBody ? 1 : 0) +
+     (bullParticipation ? 1 : 0) +
+     (aggressionLocationLong ? 1 : 0)
+
+aggrBearScore =
+     (big_sell ? 2 : 0) +
+     (aggressiveSell ? 2 : 0) +
+     (stackedBearImbalance ? 2 : 0) +
+     (sellersControl ? 1 : 0) +
+     (cdBearControl ? 1 : 0) +
+     (cdImpulseBear ? 2 : 0) +
+     (bearDirectionalBody ? 1 : 0) +
+     (bearParticipation ? 1 : 0) +
+     (aggressionLocationShort ? 1 : 0)
+
+bool aggressionBullWeak = bullAggEvent and bullDeltaPressure
+bool aggressionBearWeak = bearAggEvent and bearDeltaPressure
+
+// FIX: removed weak generic clause (bullParticipation and bullDirectionalBody and cdBullControl)
+// which was just "any decent bullish candle with volume". Now requires a real orderflow event.
+bool bullAggCombo = aggressiveBuy or (big_buy and (cdImpulseBull or stackedBullImbalance or bullParticipation)) or (stackedBullImbalance and bullParticipation) or (big_buy and bullDirectionalBody and cdImpulseBull) or (cdImpulseBull and bullDirectionalBody and bullParticipation)
+bool bearAggCombo = aggressiveSell or (big_sell and (cdImpulseBear or stackedBearImbalance or bearParticipation)) or (stackedBearImbalance and bearParticipation) or (big_sell and bearDirectionalBody and cdImpulseBear) or (cdImpulseBear and bearDirectionalBody and bearParticipation)
+
+// Aggression thresholds lowered by 1 after removing absorption from score.
+// Requires score >= 4 + location + combo, OR score >= 3 with a hard event.
+// Hard events = only the most definitive institutional prints.
+// cdImpulseBull is in bullAggEvent but NOT here — delta alone shouldn't
+// lower quality thresholds for secondary setups (was causing false positives).
+bool bullHardEvent = big_buy or aggressiveBuy or stackedBullImbalance
+bool bearHardEvent = big_sell or aggressiveSell or stackedBearImbalance
+bool aggressionBullValid = aggressionBullWeak and aggressionLocationLong and ((aggrBullScore >= 4 and bullAggCombo) or (aggrBullScore >= 3 and bullHardEvent))
+bool aggressionBearValid = aggressionBearWeak and aggressionLocationShort and ((aggrBearScore >= 4 and bearAggCombo) or (aggrBearScore >= 3 and bearHardEvent))
+bool aggressionBullStrong = aggrBullScore >= 6 and aggressionBullValid and (aggressiveBuy or (big_buy and stackedBullImbalance) or (big_buy and cdImpulseBull) or (stackedBullImbalance and cdImpulseBull))
+bool aggressionBearStrong = aggrBearScore >= 6 and aggressionBearValid and (aggressiveSell or (big_sell and stackedBearImbalance) or (big_sell and cdImpulseBear) or (stackedBearImbalance and cdImpulseBear))
+
+string aggressionBullTier = aggressionBullStrong ? 'STRONG' : aggressionBullValid ? 'VALID' : aggressionBullWeak ? 'WEAK' : 'NONE'
+string aggressionBearTier = aggressionBearStrong ? 'STRONG' : aggressionBearValid ? 'VALID' : aggressionBearWeak ? 'WEAK' : 'NONE'
+
+aggressionBull = aggressionBullValid
+aggressionBear = aggressionBearValid
+
+bool aboveBalance = na(ctxBalancePrice) ? aboveVWAP : close > ctxBalancePrice
+bool belowBalance = na(ctxBalancePrice) ? belowVWAP : close < ctxBalancePrice
+// Acceptance: needs delta control OR positive cumulative delta with slope.
+// Restored a lighter fallback so acceptance isn't impossible during quiet trending.
+bool bullAcceptance = aboveBalance and aboveVWAP and (cdBullControl or buyersControl or (cumulativeDelta > 0 and cvdSlopeFast > 0))
+bool bearAcceptance = belowBalance and belowVWAP and (cdBearControl or sellersControl or (cumulativeDelta < 0 and cvdSlopeFast < 0))
+bool balanceCompression = contraction and rvol < 1.10 and math.abs(cvdSlopeFast) < absDeltaSma20 * 0.35
+bool reclaimIntoValueLong = reversionZoneLong and close >= nz(close[1]) and (cdBullControl or cdDivBull or absorptionUp or big_buy)
+bool reclaimIntoValueShort = reversionZoneShort and close <= nz(close[1]) and (cdBearControl or cdDivBear or absorptionDown or big_sell)
+
+// Favio alignment: session-aware model selection.
+// NY Cash favors Trend (out-of-balance continuation).
+// Overnight/Pre-market favors Reversion (compressed ranges, mean reversion).
+bool sessionFavorsTrend = inNY
+bool sessionFavorsReversion = not inNY
+
+trendBullState = not balanceCompression and bullAcceptance and aggressionBull and (cdImpulseBull or cvdSlopeFast > 0 or aggressionBullStrong or (sessionFavorsTrend and bullHardEvent))
+trendBearState = not balanceCompression and bearAcceptance and aggressionBear and (cdImpulseBear or cvdSlopeFast < 0 or aggressionBearStrong or (sessionFavorsTrend and bearHardEvent))
+
+reversionBullState = not trendBearState and reclaimIntoValueLong and not bullAcceptance and (na(ctxBalancePrice) or close >= ctxBalancePrice) and (aggressionBullWeak or cdDivBull or (sessionFavorsReversion and recentAbsorptionUp))
+reversionBearState = not trendBullState and reclaimIntoValueShort and not bearAcceptance and (na(ctxBalancePrice) or close <= ctxBalancePrice) and (aggressionBearWeak or cdDivBear or (sessionFavorsReversion and recentAbsorptionDown))
+
+marketTrend = trendBullState or trendBearState
+marketReversion = not marketTrend and (reversionBullState or reversionBearState)
+marketNeutral = not marketTrend and not marketReversion
+
+// Neutral bias: requires positive CD + at least one slope confirming.
+// Balanced between the original (too easy) and previous fix (too strict).
+marketBiasLong = trendBullState or reversionBullState or (marketNeutral and aboveVWAP and cumulativeDelta > 0 and (cvdSlopeFast > 0 or cvdSlopeSlow > 0))
+marketBiasShort = trendBearState or reversionBearState or (marketNeutral and belowVWAP and cumulativeDelta < 0 and (cvdSlopeFast < 0 or cvdSlopeSlow < 0))
+
+int rawMarketBiasDir = marketBiasLong and not marketBiasShort ? 1 : marketBiasShort and not marketBiasLong ? -1 : 0
+int rawMarketModelState = marketTrend ? 1 : marketReversion ? -1 : 0
+
+var int stableMarketBiasDir = 0
+var int stableMarketModelState = 0
+var int biasCandidateDir = 0
+var int modelCandidateState = 0
+var int biasCandidateBars = 0
+var int modelCandidateBars = 0
+int stableFlipBars = 2
+
+if barstate.isfirst or dayChange
+    stableMarketBiasDir := rawMarketBiasDir
+    stableMarketModelState := rawMarketModelState
+    biasCandidateDir := rawMarketBiasDir
+    modelCandidateState := rawMarketModelState
+    biasCandidateBars := 0
+    modelCandidateBars := 0
+else if barstate.isconfirmed
+    if rawMarketBiasDir == stableMarketBiasDir
+        biasCandidateDir := rawMarketBiasDir
+        biasCandidateBars := 0
+    else
+        if rawMarketBiasDir == biasCandidateDir
+            biasCandidateBars += 1
+        else
+            biasCandidateDir := rawMarketBiasDir
+            biasCandidateBars := 1
+        if biasCandidateBars >= stableFlipBars
+            stableMarketBiasDir := biasCandidateDir
+            biasCandidateBars := 0
+
+    if rawMarketModelState == stableMarketModelState
+        modelCandidateState := rawMarketModelState
+        modelCandidateBars := 0
+    else
+        if rawMarketModelState == modelCandidateState
+            modelCandidateBars += 1
+        else
+            modelCandidateState := rawMarketModelState
+            modelCandidateBars := 1
+        if modelCandidateBars >= stableFlipBars
+            stableMarketModelState := modelCandidateState
+            modelCandidateBars := 0
+
+marketBias = stableMarketBiasDir == 1 ? 'BULL' : stableMarketBiasDir == -1 ? 'BEAR' : 'NEUTRAL'
+marketModel = stableMarketModelState == 1 ? 'TREND' : stableMarketModelState == -1 ? 'REVERSION' : 'NEUTRAL'
+
+trendLocationLong = locAtLVNLong or pocBreakLong or pmHighBreakLong or orbBreakoutLong or (locAtGapAreaLong and bullAcceptance) or (locAtVWAPLong and bullAcceptance)
+trendLocationShort = locAtLVNShort or pocBreakShort or pmLowBreakShort or orbBreakoutShort or (locAtGapAreaShort and bearAcceptance) or (locAtVWAPShort and bearAcceptance)
+
+reversionLocationLong = valBounce or pocBounceLong or pmLowBounceLong or pmVwapBounceLong or (locAtGapAreaLong and reversionZoneLong) or locAtReclaimLong or recentAbsAtKeyLong
+reversionLocationShort = vahBounce or pocBounceShort or pmHighBounceShort or pmVwapBounceShort or (locAtGapAreaShort and reversionZoneShort) or locAtReclaimShort or recentAbsAtKeyShort
+
+locationLong = trendLocationLong or reversionLocationLong or locationLongScore >= 3
+locationShort = trendLocationShort or reversionLocationShort or locationShortScore >= 3
+
+// =============================================================================
+// SCORE ENGINE — CONTEXT FIRST, 3A WITHOUT OVERSTACKING FILTERS
+// =============================================================================
+recentCompression = ta.barssince(contraction) <= 3
+
+// FIX: bypass path now requires location context — before it could fire
+// a 3A in the middle of nowhere with just absorption + compression + aggression.
+tripleAStdCoreLong  = (tripleAPhaseLong == 3)  or (recentAbsorptionUp and recentCompression and (tripleAAggrBull or aggressiveBuy) and (locAtValueLong or locAtLVNLong or locAtPMLong or locAtVWAPLong))
+tripleAStdCoreShort = (tripleAPhaseShort == 3) or (recentAbsorptionDown and recentCompression and (tripleAAggrBear or aggressiveSell) and (locAtValueShort or locAtLVNShort or locAtPMShort or locAtVWAPShort))
+
+tripleAContextLong =
+     (recentAbsAtKeyLong or trendLocationLong or reversionLocationLong or locAtLVNLong or locAtGapAreaLong or locAtVWAPLong) and
+     marketBiasLong and
+     (marketTrend or marketReversion)
+
+tripleAContextShort =
+     (recentAbsAtKeyShort or trendLocationShort or reversionLocationShort or locAtLVNShort or locAtGapAreaShort or locAtVWAPShort) and
+     marketBiasShort and
+     (marketTrend or marketReversion)
+
+tripleAQualLong =
+     (tripleAStdCoreLong ? 2 : 0) +
+     (recentAbsAtKeyLong ? 1 : 0) +
+     (tripleAContextLong ? 1 : 0) +
+     (aggressionBullStrong ? 2 : aggressionBullValid ? 1 : 0) +
+     (marketBiasLong ? 1 : 0)
+
+tripleAQualShort =
+     (tripleAStdCoreShort ? 2 : 0) +
+     (recentAbsAtKeyShort ? 1 : 0) +
+     (tripleAContextShort ? 1 : 0) +
+     (aggressionBearStrong ? 2 : aggressionBearValid ? 1 : 0) +
+     (marketBiasShort ? 1 : 0)
+
+longScore =
+     locationLongScore +
+     aggrBullScore +
+     (marketBiasLong ? 2 : 0) +
+     (marketTrend ? 1 : 0) +
+     (marketReversion ? 1 : 0) +
+     (recentAbsorptionUp ? 1 : 0) +
+     (recentCompression ? 1 : 0)
+
+shortScore =
+     locationShortScore +
+     aggrBearScore +
+     (marketBiasShort ? 2 : 0) +
+     (marketTrend ? 1 : 0) +
+     (marketReversion ? 1 : 0) +
+     (recentAbsorptionDown ? 1 : 0) +
+     (recentCompression ? 1 : 0)
+
+// =============================================================================
+// SETUP MATRIX — FASE 6: PATRÓN + CALIDAD (SIN MEZCLAR TODO EN UNA SOLA SOPA)
+// =============================================================================
+tripleALongSetup    = tripleAStdCoreLong
+tripleAShortSetup   = tripleAStdCoreShort
+
+bool premiumKeyLong = recentAbsAtKeyLong or locAtLVNLong or locAtGapAreaLong or locAtPMLong or locAtPMVWAPLong or locAtReclaimLong or (locAtVWAPLong and bullAcceptance)
+bool premiumKeyShort = recentAbsAtKeyShort or locAtLVNShort or locAtGapAreaShort or locAtPMShort or locAtPMVWAPShort or locAtReclaimShort or (locAtVWAPShort and bearAcceptance)
+bool premiumAggLong = aggressionBullValid or (aggressionBullWeak and premiumKeyLong and (cdBullControl or buyersControl or cvdSlopeFast > 0))
+bool premiumAggShort = aggressionBearValid or (aggressionBearWeak and premiumKeyShort and (cdBearControl or sellersControl or cvdSlopeFast < 0))
+
+tripleAPremiumLong  = tripleAStdCoreLong and tripleAContextLong and premiumKeyLong and premiumAggLong
+tripleAPremiumShort = tripleAStdCoreShort and tripleAContextShort and premiumKeyShort and premiumAggShort
+
+trendLongSetup      = marketTrend and marketBiasLong and trendLocationLong and aggressionBull
+trendShortSetup     = marketTrend and marketBiasShort and trendLocationShort and aggressionBear
+reversionLongSetup  = marketReversion and marketBiasLong and reversionLocationLong and aggressionBull
+reversionShortSetup = marketReversion and marketBiasShort and reversionLocationShort and aggressionBear
+
+gapLongSetup        = useGapAnalysis and gapFillLong and aggressionBull
+gapShortSetup       = useGapAnalysis and gapFillShort and aggressionBear
+pmLongSetup         = usePMlevels and (pmLowBounceLong or pmHighBreakLong) and aggressionBull
+pmShortSetup        = usePMlevels and (pmHighBounceShort or pmLowBreakShort) and aggressionBear
+lvnPullbackLong     = lvn_reaction_bull and aggressionBull and marketBiasLong
+lvnPullbackShort    = lvn_reaction_bear and aggressionBear and marketBiasShort
+failedBreakoutLong  = marketReversion and marketBiasLong and reversionZoneLong and aggressionBull
+failedBreakoutShort = marketReversion and marketBiasShort and reversionZoneShort and aggressionBear
+
+bool longCand3APremium  = enablePremiumSetups and tripleAPremiumLong
+bool shortCand3APremium = enablePremiumSetups and tripleAPremiumShort
+bool longCand3AStd      = enableStandardSetups and tripleALongSetup and not tripleAPremiumLong
+bool shortCand3AStd     = enableStandardSetups and tripleAShortSetup and not tripleAPremiumShort
+bool longCandLVN        = enableSecondarySetups and lvnPullbackLong
+bool shortCandLVN       = enableSecondarySetups and lvnPullbackShort
+bool longCandFailed     = enableSecondarySetups and failedBreakoutLong
+bool shortCandFailed    = enableSecondarySetups and failedBreakoutShort
+bool longCandGap        = enableSecondarySetups and gapLongSetup
+bool shortCandGap       = enableSecondarySetups and gapShortSetup
+bool longCandPM         = enableSecondarySetups and pmLongSetup
+bool shortCandPM        = enableSecondarySetups and pmShortSetup
+bool longCandTrend      = enableSecondarySetups and trendLongSetup
+bool shortCandTrend     = enableSecondarySetups and trendShortSetup
+bool longCandReversion  = enableSecondarySetups and reversionLongSetup
+bool shortCandReversion = enableSecondarySetups and reversionShortSetup
+
+string longPatternName = 'NONE'
+string shortPatternName = 'NONE'
+string longPatternFamily = 'NONE'
+string shortPatternFamily = 'NONE'
+
+if marketTrend
+    if longCand3APremium
+        longPatternName := '3A PREMIUM LONG'
+        longPatternFamily := '3A'
+    else if longCand3AStd
+        longPatternName := '3A LONG'
+        longPatternFamily := '3A'
+    else if longCandLVN
+        longPatternName := 'LVN PULLBACK LONG'
+        longPatternFamily := 'LVN'
+    else if longCandTrend
+        longPatternName := 'TREND CONTINUATION LONG'
+        longPatternFamily := 'TREND'
+    else if longCandGap
+        longPatternName := 'GAP FILL LONG'
+        longPatternFamily := 'GAP'
+    else if longCandPM
+        longPatternName := 'PM REACTION LONG'
+        longPatternFamily := 'PM'
+    else if longCandReversion
+        longPatternName := 'REVERSION LONG'
+        longPatternFamily := 'REVERSION'
+    else if longCandFailed
+        longPatternName := 'FAILED BREAKOUT LONG'
+        longPatternFamily := 'FAILED'
+else if marketReversion
+    if longCand3APremium
+        longPatternName := '3A PREMIUM LONG'
+        longPatternFamily := '3A'
+    else if longCand3AStd
+        longPatternName := '3A LONG'
+        longPatternFamily := '3A'
+    else if longCandFailed
+        longPatternName := 'FAILED BREAKOUT LONG'
+        longPatternFamily := 'FAILED'
+    else if longCandReversion
+        longPatternName := 'REVERSION LONG'
+        longPatternFamily := 'REVERSION'
+    else if longCandGap
+        longPatternName := 'GAP FILL LONG'
+        longPatternFamily := 'GAP'
+    else if longCandPM
+        longPatternName := 'PM REACTION LONG'
+        longPatternFamily := 'PM'
+    else if longCandLVN
+        longPatternName := 'LVN PULLBACK LONG'
+        longPatternFamily := 'LVN'
+    else if longCandTrend
+        longPatternName := 'TREND CONTINUATION LONG'
+        longPatternFamily := 'TREND'
+else
+    if longCand3APremium
+        longPatternName := '3A PREMIUM LONG'
+        longPatternFamily := '3A'
+    else if longCand3AStd
+        longPatternName := '3A LONG'
+        longPatternFamily := '3A'
+    else if longCandGap
+        longPatternName := 'GAP FILL LONG'
+        longPatternFamily := 'GAP'
+    else if longCandPM
+        longPatternName := 'PM REACTION LONG'
+        longPatternFamily := 'PM'
+    else if longCandLVN
+        longPatternName := 'LVN PULLBACK LONG'
+        longPatternFamily := 'LVN'
+    else if longCandTrend
+        longPatternName := 'TREND CONTINUATION LONG'
+        longPatternFamily := 'TREND'
+    else if longCandReversion
+        longPatternName := 'REVERSION LONG'
+        longPatternFamily := 'REVERSION'
+    else if longCandFailed
+        longPatternName := 'FAILED BREAKOUT LONG'
+        longPatternFamily := 'FAILED'
+
+if marketTrend
+    if shortCand3APremium
+        shortPatternName := '3A PREMIUM SHORT'
+        shortPatternFamily := '3A'
+    else if shortCand3AStd
+        shortPatternName := '3A SHORT'
+        shortPatternFamily := '3A'
+    else if shortCandLVN
+        shortPatternName := 'LVN PULLBACK SHORT'
+        shortPatternFamily := 'LVN'
+    else if shortCandTrend
+        shortPatternName := 'TREND CONTINUATION SHORT'
+        shortPatternFamily := 'TREND'
+    else if shortCandGap
+        shortPatternName := 'GAP FILL SHORT'
+        shortPatternFamily := 'GAP'
+    else if shortCandPM
+        shortPatternName := 'PM REACTION SHORT'
+        shortPatternFamily := 'PM'
+    else if shortCandReversion
+        shortPatternName := 'REVERSION SHORT'
+        shortPatternFamily := 'REVERSION'
+    else if shortCandFailed
+        shortPatternName := 'FAILED BREAKOUT SHORT'
+        shortPatternFamily := 'FAILED'
+else if marketReversion
+    if shortCand3APremium
+        shortPatternName := '3A PREMIUM SHORT'
+        shortPatternFamily := '3A'
+    else if shortCand3AStd
+        shortPatternName := '3A SHORT'
+        shortPatternFamily := '3A'
+    else if shortCandFailed
+        shortPatternName := 'FAILED BREAKOUT SHORT'
+        shortPatternFamily := 'FAILED'
+    else if shortCandReversion
+        shortPatternName := 'REVERSION SHORT'
+        shortPatternFamily := 'REVERSION'
+    else if shortCandGap
+        shortPatternName := 'GAP FILL SHORT'
+        shortPatternFamily := 'GAP'
+    else if shortCandPM
+        shortPatternName := 'PM REACTION SHORT'
+        shortPatternFamily := 'PM'
+    else if shortCandLVN
+        shortPatternName := 'LVN PULLBACK SHORT'
+        shortPatternFamily := 'LVN'
+    else if shortCandTrend
+        shortPatternName := 'TREND CONTINUATION SHORT'
+        shortPatternFamily := 'TREND'
+else
+    if shortCand3APremium
+        shortPatternName := '3A PREMIUM SHORT'
+        shortPatternFamily := '3A'
+    else if shortCand3AStd
+        shortPatternName := '3A SHORT'
+        shortPatternFamily := '3A'
+    else if shortCandGap
+        shortPatternName := 'GAP FILL SHORT'
+        shortPatternFamily := 'GAP'
+    else if shortCandPM
+        shortPatternName := 'PM REACTION SHORT'
+        shortPatternFamily := 'PM'
+    else if shortCandLVN
+        shortPatternName := 'LVN PULLBACK SHORT'
+        shortPatternFamily := 'LVN'
+    else if shortCandTrend
+        shortPatternName := 'TREND CONTINUATION SHORT'
+        shortPatternFamily := 'TREND'
+    else if shortCandReversion
+        shortPatternName := 'REVERSION SHORT'
+        shortPatternFamily := 'REVERSION'
+    else if shortCandFailed
+        shortPatternName := 'FAILED BREAKOUT SHORT'
+        shortPatternFamily := 'FAILED'
+
+int longQualityScore =
+     (marketBiasLong ? 1 : 0) +
+     (aggressionBullStrong ? 3 : aggressionBullValid ? 2 : aggressionBullWeak ? 1 : 0) +
+     (locationLongScore >= 5 ? 2 : locationLongScore >= 3 ? 1 : 0) +
+     ((marketTrend and (longPatternFamily == 'TREND' or longPatternFamily == 'LVN' or longPatternFamily == '3A')) ? 1 : 0) +
+     ((marketReversion and (longPatternFamily == 'REVERSION' or longPatternFamily == 'FAILED' or longPatternFamily == '3A')) ? 1 : 0) +
+     (recentAbsAtKeyLong ? 1 : 0) +
+     ((cvdSlopeFast > 0 and cumulativeDelta >= 0) ? 1 : 0)
+
+int shortQualityScore =
+     (marketBiasShort ? 1 : 0) +
+     (aggressionBearStrong ? 3 : aggressionBearValid ? 2 : aggressionBearWeak ? 1 : 0) +
+     (locationShortScore >= 5 ? 2 : locationShortScore >= 3 ? 1 : 0) +
+     ((marketTrend and (shortPatternFamily == 'TREND' or shortPatternFamily == 'LVN' or shortPatternFamily == '3A')) ? 1 : 0) +
+     ((marketReversion and (shortPatternFamily == 'REVERSION' or shortPatternFamily == 'FAILED' or shortPatternFamily == '3A')) ? 1 : 0) +
+     (recentAbsAtKeyShort ? 1 : 0) +
+     ((cvdSlopeFast < 0 and cumulativeDelta <= 0) ? 1 : 0)
+
+string longQuality = longPatternName == 'NONE' ? 'NONE' : longQualityScore >= 8 ? 'A+' : longQualityScore >= 5 ? 'A' : 'B'
+string shortQuality = shortPatternName == 'NONE' ? 'NONE' : shortQualityScore >= 8 ? 'A+' : shortQualityScore >= 5 ? 'A' : 'B'
+
+bool longIsPremium    = longPatternName != 'NONE' and longQuality == 'A+'
+bool shortIsPremium   = shortPatternName != 'NONE' and shortQuality == 'A+'
+bool longIsTripleA    = longPatternFamily == '3A' and longPatternName != 'NONE' and longQuality != 'A+'
+bool shortIsTripleA   = shortPatternFamily == '3A' and shortPatternName != 'NONE' and shortQuality != 'A+'
+// Secondary setups pass if quality is A or B, but B requires a hard event.
+// This avoids killing all secondaries while still filtering the weakest ones.
+bool longIsSecondary  = longPatternName != 'NONE' and not longIsPremium and not longIsTripleA and (longQuality == 'A' or (longQuality == 'B' and bullHardEvent))
+bool shortIsSecondary = shortPatternName != 'NONE' and not shortIsPremium and not shortIsTripleA and (shortQuality == 'A' or (shortQuality == 'B' and bearHardEvent))
+
+rawLongIsPremium    = longIsPremium
+rawLongIsTripleA    = longIsTripleA
+rawLongIsSecondary  = longIsSecondary
+rawShortIsPremium   = shortIsPremium
+rawShortIsTripleA   = shortIsTripleA
+rawShortIsSecondary = shortIsSecondary
+
+string activeLongSetup = longPatternName
+string activeShortSetup = shortPatternName
+string activeLongQuality = longQuality
+string activeShortQuality = shortQuality
+
+// =============================================================================
+// ESTADO DEL INDICADOR (SIN GESTIÓN DE TRADE)
+// =============================================================================
+longSignal = false
+shortSignal = false
+
+var int dayPremLongSignals  = 0
+var int dayPremShortSignals = 0
+var int dayStdLongSignals   = 0
+var int dayStdShortSignals  = 0
+var int daySecLongSignals   = 0
+var int daySecShortSignals  = 0
+
+if dayChange
+    dayPremLongSignals  := 0
+    dayPremShortSignals := 0
+    dayStdLongSignals   := 0
+    dayStdShortSignals  := 0
+    daySecLongSignals   := 0
+    daySecShortSignals  := 0
+
+longIsPremium    := rawLongIsPremium
+longIsTripleA    := rawLongIsTripleA
+longIsSecondary  := rawLongIsSecondary
+shortIsPremium   := rawShortIsPremium
+shortIsTripleA   := rawShortIsTripleA
+shortIsSecondary := rawShortIsSecondary
+
+int longTierNow  = rawLongIsPremium ? 3 : rawLongIsTripleA ? 2 : rawLongIsSecondary ? 1 : 0
+int shortTierNow = rawShortIsPremium ? 3 : rawShortIsTripleA ? 2 : rawShortIsSecondary ? 1 : 0
+bool rawAnyLong  = longTierNow > 0
+bool rawAnyShort = shortTierNow > 0
+
+if rawAnyLong and rawAnyShort
+    if longScore > shortScore
+        shortIsPremium   := false
+        shortIsTripleA   := false
+        shortIsSecondary := false
+    else if shortScore > longScore
+        longIsPremium    := false
+        longIsTripleA    := false
+        longIsSecondary  := false
+    else if longTierNow > shortTierNow
+        shortIsPremium   := false
+        shortIsTripleA   := false
+        shortIsSecondary := false
+    else if shortTierNow > longTierNow
+        longIsPremium    := false
+        longIsTripleA    := false
+        longIsSecondary  := false
+    else
+        longIsPremium    := false
+        longIsTripleA    := false
+        longIsSecondary  := false
+        shortIsPremium   := false
+        shortIsTripleA   := false
+        shortIsSecondary := false
+
+longSignal  := longIsPremium or longIsTripleA or longIsSecondary
+shortSignal := shortIsPremium or shortIsTripleA or shortIsSecondary
+
+// ── SESSION FILTER + DAILY CAP ───────────────────────────────────────────────
+bool signalSessionOK = switch signalSessionFilter
+    'NY Cash Only' => inNY
+    'NY + Overnight' => inNY or inOvernight
+    => true
+int totalDaySignals = dayPremLongSignals + dayPremShortSignals + dayStdLongSignals + dayStdShortSignals + daySecLongSignals + daySecShortSignals
+bool dailyCapOK = totalDaySignals < dailySignalCap
+
+signalLongPremiumNow    = barstate.isconfirmed and longIsPremium and signalSessionOK and dailyCapOK
+signalShortPremiumNow   = barstate.isconfirmed and shortIsPremium and signalSessionOK and dailyCapOK
+signalLongTripleANow    = barstate.isconfirmed and longIsTripleA and signalSessionOK and dailyCapOK
+signalShortTripleANow   = barstate.isconfirmed and shortIsTripleA and signalSessionOK and dailyCapOK
+signalLongSecondaryNow  = barstate.isconfirmed and longIsSecondary and signalSessionOK and dailyCapOK
+signalShortSecondaryNow = barstate.isconfirmed and shortIsSecondary and signalSessionOK and dailyCapOK
+
+// ── SIGNAL COOLDOWN SYSTEM ────────────────────────────────────────────────────
+// Prevents signal spam by enforcing minimum bar spacing between signals.
+// Premium gets shorter cooldown (higher conviction), secondary gets longer.
+var int lastLongSignalBar  = na
+var int lastShortSignalBar = na
+int cooldownPremium   = 3
+int cooldownStandard  = 5
+int cooldownSecondary = 7
+
+if dayChange
+    lastLongSignalBar  := na
+    lastShortSignalBar := na
+
+bool cooldownLongPremiumOK   = na(lastLongSignalBar) or (bar_index - lastLongSignalBar) >= cooldownPremium
+bool cooldownLongStandardOK  = na(lastLongSignalBar) or (bar_index - lastLongSignalBar) >= cooldownStandard
+bool cooldownLongSecondaryOK = na(lastLongSignalBar) or (bar_index - lastLongSignalBar) >= cooldownSecondary
+bool cooldownShortPremiumOK   = na(lastShortSignalBar) or (bar_index - lastShortSignalBar) >= cooldownPremium
+bool cooldownShortStandardOK  = na(lastShortSignalBar) or (bar_index - lastShortSignalBar) >= cooldownStandard
+bool cooldownShortSecondaryOK = na(lastShortSignalBar) or (bar_index - lastShortSignalBar) >= cooldownSecondary
+
+// ── TRIGGER BAR QUALITY FILTER ───────────────────────────────────────────────
+// The bar that fires the signal must agree directionally and have participation.
+// Trigger bar: directional close + minimum volume. Delta check removed —
+// the aggression engine already validates delta. Double-gating killed signals.
+bool triggerBarBullOK = close >= open and volume >= avgVol * 0.7
+bool triggerBarBearOK = close <= open and volume >= avgVol * 0.7
+
+signalLongPremiumInt    = signalLongPremiumNow ? 1 : 0
+signalShortPremiumInt   = signalShortPremiumNow ? 1 : 0
+signalLongTripleAInt    = signalLongTripleANow ? 1 : 0
+signalShortTripleAInt   = signalShortTripleANow ? 1 : 0
+signalLongSecondaryInt  = signalLongSecondaryNow ? 1 : 0
+signalShortSecondaryInt = signalShortSecondaryNow ? 1 : 0
+
+changeLongPremium    = ta.change(signalLongPremiumInt)
+changeShortPremium   = ta.change(signalShortPremiumInt)
+changeLongTripleA    = ta.change(signalLongTripleAInt)
+changeShortTripleA   = ta.change(signalShortTripleAInt)
+changeLongSecondary  = ta.change(signalLongSecondaryInt)
+changeShortSecondary = ta.change(signalShortSecondaryInt)
+
+// FIX: apply cooldown + trigger bar filter to all signal tiers
+freshLongPremium    = signalLongPremiumNow and changeLongPremium > 0 and cooldownLongPremiumOK and triggerBarBullOK
+freshShortPremium   = signalShortPremiumNow and changeShortPremium > 0 and cooldownShortPremiumOK and triggerBarBearOK
+freshLongTripleA    = signalLongTripleANow and changeLongTripleA > 0 and cooldownLongStandardOK and triggerBarBullOK
+freshShortTripleA   = signalShortTripleANow and changeShortTripleA > 0 and cooldownShortStandardOK and triggerBarBearOK
+freshLongSecondary  = signalLongSecondaryNow and changeLongSecondary > 0 and cooldownLongSecondaryOK and triggerBarBullOK
+freshShortSecondary = signalShortSecondaryNow and changeShortSecondary > 0 and cooldownShortSecondaryOK and triggerBarBearOK
+
+// Update cooldown tracking
+if freshLongPremium or freshLongTripleA or freshLongSecondary
+    lastLongSignalBar := bar_index
+if freshShortPremium or freshShortTripleA or freshShortSecondary
+    lastShortSignalBar := bar_index
+
+if freshLongPremium
+    dayPremLongSignals += 1
+if freshShortPremium
+    dayPremShortSignals += 1
+if freshLongTripleA
+    dayStdLongSignals += 1
+if freshShortTripleA
+    dayStdShortSignals += 1
+if freshLongSecondary
+    daySecLongSignals += 1
+if freshShortSecondary
+    daySecShortSignals += 1
+
+// =============================================================================
+// VISUALIZACIONES
+// =============================================================================
+
+// ── CONTEXT LEVEL PLOTS ──────────────────────────────────────────────────────
+// Overnight High / Low / VWAP + Session VWAP — the reference framework.
+plot(showPMLines and pmReady and inNY ? pmHighFinal : na, title='Overnight High', color=colPMHigh, linewidth=1, style=plot.style_stepline_diamond)
+plot(showPMLines and pmReady and inNY ? pmLowFinal : na, title='Overnight Low', color=colPMLow, linewidth=1, style=plot.style_stepline_diamond)
+plot(showPMVwapLine and pmReady and inNY and not na(pmVwapFinal) ? pmVwapFinal : na, title='Overnight VWAP', color=colPMVwap, linewidth=1, style=plot.style_stepline)
+plot(showSessionVWAP and not na(vwapValue) ? vwapValue : na, title='Session VWAP', color=colSessionVWAP, linewidth=2, style=plot.style_line)
+
+volStdev   = ta.stdev(volume, bubbleLookback)
+scaledVol  = volStdev > 0 ? volume / volStdev : 0.0
+
+topBody    = math.max(open, close)
+lowBody    = math.min(open, close)
+
+bigTradeCoreBuyColor   = colBubbleBuyCore
+bigTradeCoreSellColor  = colBubbleSellCore
+bigTradeHaloBuyColor   = color.new(colBubbleBuyCore, 70)
+bigTradeHaloSellColor  = color.new(colBubbleSellCore, 70)
+
+bigTradeBullShape = f_marker_shape_bull(bigTradesShape)
+bigTradeBearShape = f_marker_shape_bear(bigTradesShape)
+absBullShape      = f_marker_shape_bull(absorptionShape)
+absBearShape      = f_marker_shape_bear(absorptionShape)
+
+bigTradeBubbleBuy_A = visShowBubblesFinal and big_buy  and scaledVol >= bubbleThreshold       and scaledVol < (bubbleThreshold + 1)
+bigTradeBubbleBuy_B = visShowBubblesFinal and big_buy  and scaledVol >= (bubbleThreshold + 1) and scaledVol < (bubbleThreshold + 2)
+bigTradeBubbleBuy_C = visShowBubblesFinal and big_buy  and scaledVol >= (bubbleThreshold + 2) and scaledVol < (bubbleThreshold + 3)
+bigTradeBubbleBuy_D = visShowBubblesFinal and big_buy  and scaledVol >= (bubbleThreshold + 3) and scaledVol < (bubbleThreshold + 6)
+bigTradeBubbleBuy_E = visShowBubblesFinal and big_buy  and scaledVol >= (bubbleThreshold + 6)
+
+bigTradeBubbleSell_A = visShowBubblesFinal and big_sell and scaledVol >= bubbleThreshold       and scaledVol < (bubbleThreshold + 1)
+bigTradeBubbleSell_B = visShowBubblesFinal and big_sell and scaledVol >= (bubbleThreshold + 1) and scaledVol < (bubbleThreshold + 2)
+bigTradeBubbleSell_C = visShowBubblesFinal and big_sell and scaledVol >= (bubbleThreshold + 2) and scaledVol < (bubbleThreshold + 3)
+bigTradeBubbleSell_D = visShowBubblesFinal and big_sell and scaledVol >= (bubbleThreshold + 3) and scaledVol < (bubbleThreshold + 6)
+bigTradeBubbleSell_E = visShowBubblesFinal and big_sell and scaledVol >= (bubbleThreshold + 6)
+
+buyBubbleY  = low + (lowBody - low) * 0.5
+sellBubbleY = topBody + (high - topBody) * 0.5
+
+// BigTrades con halo ligero solo en eventos grandes para respetar el plot budget.
+plotshape(series=bigTradeBubbleBuy_D  ? buyBubbleY  : na, title='BT Buy Halo L',  style=bigTradeBullShape, location=location.absolute, color=bigTradeHaloBuyColor,   editable=true, size=size.huge)
+plotshape(series=bigTradeBubbleBuy_E  ? buyBubbleY  : na, title='BT Buy Halo XL', style=bigTradeBullShape, location=location.absolute, color=bigTradeHaloBuyColor,   editable=true, size=size.huge)
+plotshape(series=bigTradeBubbleSell_D ? sellBubbleY : na, title='BT Sell Halo L', style=bigTradeBearShape, location=location.absolute, color=bigTradeHaloSellColor,  editable=true, size=size.huge)
+plotshape(series=bigTradeBubbleSell_E ? sellBubbleY : na, title='BT Sell Halo XL', style=bigTradeBearShape, location=location.absolute, color=bigTradeHaloSellColor,  editable=true, size=size.huge)
+
+plotshape(series=bigTradeBubbleBuy_A  ? buyBubbleY  : na, title='BT Buy Core XS', style=bigTradeBullShape, location=location.absolute, color=bigTradeCoreBuyColor,   editable=true, size=size.tiny)
+plotshape(series=bigTradeBubbleBuy_B  ? buyBubbleY  : na, title='BT Buy Core S', style=bigTradeBullShape, location=location.absolute, color=bigTradeCoreBuyColor,   editable=true, size=size.small)
+plotshape(series=bigTradeBubbleBuy_C  ? buyBubbleY  : na, title='BT Buy Core M', style=bigTradeBullShape, location=location.absolute, color=bigTradeCoreBuyColor,   editable=true, size=size.normal)
+plotshape(series=bigTradeBubbleBuy_D  ? buyBubbleY  : na, title='BT Buy Core L', style=bigTradeBullShape, location=location.absolute, color=bigTradeCoreBuyColor,   editable=true, size=size.large)
+plotshape(series=bigTradeBubbleBuy_E  ? buyBubbleY  : na, title='BT Buy Core XL', style=bigTradeBullShape, location=location.absolute, color=bigTradeCoreBuyColor,   editable=true, size=size.large)
+
+plotshape(series=bigTradeBubbleSell_A ? sellBubbleY : na, title='BT Sell Core XS', style=bigTradeBearShape, location=location.absolute, color=bigTradeCoreSellColor,  editable=true, size=size.tiny)
+plotshape(series=bigTradeBubbleSell_B ? sellBubbleY : na, title='BT Sell Core S', style=bigTradeBearShape, location=location.absolute, color=bigTradeCoreSellColor,  editable=true, size=size.small)
+plotshape(series=bigTradeBubbleSell_C ? sellBubbleY : na, title='BT Sell Core M', style=bigTradeBearShape, location=location.absolute, color=bigTradeCoreSellColor,  editable=true, size=size.normal)
+plotshape(series=bigTradeBubbleSell_D ? sellBubbleY : na, title='BT Sell Core L', style=bigTradeBearShape, location=location.absolute, color=bigTradeCoreSellColor,  editable=true, size=size.large)
+plotshape(series=bigTradeBubbleSell_E ? sellBubbleY : na, title='BT Sell Core XL', style=bigTradeBearShape, location=location.absolute, color=bigTradeCoreSellColor,  editable=true, size=size.large)
+
+absDiamondBuy_S  = visShowAbsorption and absorptionUp   and scaledVol >= bubbleThreshold       and scaledVol < (bubbleThreshold + 2)
+absDiamondBuy_M  = visShowAbsorption and absorptionUp   and scaledVol >= (bubbleThreshold + 2) and scaledVol < (bubbleThreshold + 6)
+absDiamondBuy_L  = visShowAbsorption and absorptionUp   and scaledVol >= (bubbleThreshold + 6)
+
+absDiamondSell_S = visShowAbsorption and absorptionDown and scaledVol >= bubbleThreshold       and scaledVol < (bubbleThreshold + 2)
+absDiamondSell_M = visShowAbsorption and absorptionDown and scaledVol >= (bubbleThreshold + 2) and scaledVol < (bubbleThreshold + 6)
+absDiamondSell_L = visShowAbsorption and absorptionDown and scaledVol >= (bubbleThreshold + 6)
+
+absBuyY  = low  - atr * 0.08
+absSellY = high + atr * 0.08
+
+plotshape(series=absDiamondBuy_S  ? absBuyY  : na, title='Abs Buy S', style=absBullShape, location=location.absolute, color=colAbsorptionBuy, editable=true, size=size.tiny)
+plotshape(series=absDiamondBuy_M  ? absBuyY  : na, title='Abs Buy M', style=absBullShape, location=location.absolute, color=colAbsorptionBuy, editable=true, size=size.small)
+plotshape(series=absDiamondBuy_L  ? absBuyY  : na, title='Abs Buy L', style=absBullShape, location=location.absolute, color=colAbsorptionBuy, editable=true, size=size.normal)
+
+plotshape(series=absDiamondSell_S ? absSellY : na, title='Abs Sell S', style=absBearShape, location=location.absolute, color=colAbsorptionSell, editable=true, size=size.tiny)
+plotshape(series=absDiamondSell_M ? absSellY : na, title='Abs Sell M', style=absBearShape, location=location.absolute, color=colAbsorptionSell, editable=true, size=size.small)
+plotshape(series=absDiamondSell_L ? absSellY : na, title='Abs Sell L', style=absBearShape, location=location.absolute, color=colAbsorptionSell, editable=true, size=size.normal)
+
+// Plots for 3A/imbalance/premium arrows removed to save plot budget; logic intact.
+
+hasFinalLongLabel  = freshLongPremium or freshLongTripleA or freshLongSecondary
+hasFinalShortLabel = freshShortPremium or freshShortTripleA or freshShortSecondary
+
+// ── SIGNAL LABELS — TIER-DIFFERENTIATED COLORS ──────────────────────────────
+// Premium = Gold, Standard = Core color, Secondary = Muted
+// Labels show only direction + tier stars. TP/SL is user's decision.
+
+if freshLongPremium
+    label premLongLbl = label.new(bar_index, low, text='LONG ★★★', xloc=xloc.bar_index, yloc=yloc.belowbar, style=label.style_arrowup, color=entryColorPremiumLong, textcolor=color.black, size=signalLabelSize)
+    f_pool_label(premLongLbl, maxObjectsPerPool)
+if freshShortPremium
+    label premShortLbl = label.new(bar_index, high, text='SHORT ★★★', xloc=xloc.bar_index, yloc=yloc.abovebar, style=label.style_arrowdown, color=entryColorPremiumShort, textcolor=color.black, size=signalLabelSize)
+    f_pool_label(premShortLbl, maxObjectsPerPool)
+
+if freshLongTripleA
+    label stdLongLbl = label.new(bar_index, low, text='LONG ★★', xloc=xloc.bar_index, yloc=yloc.belowbar, style=label.style_arrowup, color=entryColorStdLong, textcolor=color.white, size=signalLabelSize)
+    f_pool_label(stdLongLbl, maxObjectsPerPool)
+if freshShortTripleA
+    label stdShortLbl = label.new(bar_index, high, text='SHORT ★★', xloc=xloc.bar_index, yloc=yloc.abovebar, style=label.style_arrowdown, color=entryColorStdShort, textcolor=color.white, size=signalLabelSize)
+    f_pool_label(stdShortLbl, maxObjectsPerPool)
+
+if freshLongSecondary
+    label secLongLbl = label.new(bar_index, low, text='LONG ★', xloc=xloc.bar_index, yloc=yloc.belowbar, style=label.style_arrowup, color=entryColorSecLong, textcolor=color.white, size=signalLabelSize)
+    f_pool_label(secLongLbl, maxObjectsPerPool)
+if freshShortSecondary
+    label secShortLbl = label.new(bar_index, high, text='SHORT ★', xloc=xloc.bar_index, yloc=yloc.abovebar, style=label.style_arrowdown, color=entryColorSecShort, textcolor=color.white, size=signalLabelSize)
+    f_pool_label(secShortLbl, maxObjectsPerPool)
+// =============================================================================
+// VISUALIZACIÓN TRIPLE-A
+// =============================================================================
+var int   absStartBarLong    = na
+var int   absStartBarShort   = na
+var float absLevelPriceLong  = na
+var float absLevelPriceShort = na
+var int   accumStartBarLong  = na
+var float accumHighLong      = na
+var float accumLowLong       = na
+var int   accumStartBarShort = na
+var float accumHighShort     = na
+var float accumLowShort      = na
+var int   last3ABoxLongBar   = na
+var int   last3ABoxShortBar  = na
+var int   lastAbsLineLongBar = na
+var int   lastAbsLineShortBar= na
+var int   last3ALabelLongBar = na
+var int   last3ALabelShortBar= na
+
+bool freshAbsPhaseLong  = absorptionUp and tripleAPhaseLong == 1 and not (absorptionUp[1] and tripleAPhaseLong[1] == 1)
+bool freshAbsPhaseShort = absorptionDown and tripleAPhaseShort == 1 and not (absorptionDown[1] and tripleAPhaseShort[1] == 1)
+
+if freshAbsPhaseLong
+    absStartBarLong := bar_index
+    absLevelPriceLong := low
+if freshAbsPhaseShort
+    absStartBarShort := bar_index
+    absLevelPriceShort := high
+
+if tripleAPhaseLong == 2
+    if na(accumStartBarLong) or tripleAPhaseLong[1] != 2
+        accumStartBarLong := bar_index
+        accumHighLong := high
+        accumLowLong := low
+    else
+        accumHighLong := math.max(accumHighLong, high)
+        accumLowLong := math.min(accumLowLong, low)
+else if tripleAPhaseLong == 0
+    accumStartBarLong := na
+    accumHighLong := na
+    accumLowLong := na
+
+if tripleAPhaseShort == 2
+    if na(accumStartBarShort) or tripleAPhaseShort[1] != 2
+        accumStartBarShort := bar_index
+        accumHighShort := high
+        accumLowShort := low
+    else
+        accumHighShort := math.max(accumHighShort, high)
+        accumLowShort := math.min(accumLowShort, low)
+else if tripleAPhaseShort == 0
+    accumStartBarShort := na
+    accumHighShort := na
+    accumLowShort := na
+
+if visShowTripleABoxes and barstate.isconfirmed and execSession
+    if tripleAPhaseLong == 2 and tripleAPhaseLong[1] != 2 and not na(accumStartBarLong)
+        box preAccumLong = box.new(accumStartBarLong, accumHighLong + atr * 0.05, bar_index + 1, accumLowLong - atr * 0.05,
+             border_color=colBoxAccum, bgcolor=colBoxAccum, border_width=1, border_style=line.style_dashed)
+        f_pool_box(preAccumLong, maxObjectsPerPool)
+    if tripleAPhaseShort == 2 and tripleAPhaseShort[1] != 2 and not na(accumStartBarShort)
+        box preAccumShort = box.new(accumStartBarShort, accumHighShort + atr * 0.05, bar_index + 1, accumLowShort - atr * 0.05,
+             border_color=colBoxAccum, bgcolor=colBoxAccum, border_width=1, border_style=line.style_dashed)
+        f_pool_box(preAccumShort, maxObjectsPerPool)
+
+if visShowTripleABoxes and barstate.isconfirmed and execSession
+    if freshAbsPhaseLong
+        box absUpBox = box.new(bar_index - 1, high, bar_index + 2, low, border_color=colBoxAbsorption, bgcolor=colBoxAbsorption, border_width=1)
+        f_pool_box(absUpBox, maxObjectsPerPool)
+    if freshAbsPhaseShort
+        box absDnBox = box.new(bar_index - 1, high, bar_index + 2, low, border_color=colBoxAbsorption, bgcolor=colBoxAbsorption, border_width=1)
+        f_pool_box(absDnBox, maxObjectsPerPool)
+
+if visShowTripleABoxes and barstate.isconfirmed and execSession
+    if (tripleAAggrBull or aggressiveBuy) and (tripleALongSetup or tripleAPremiumLong) and (na(last3ABoxLongBar) or last3ABoxLongBar != bar_index)
+        if not na(accumStartBarLong)
+            box accumBoxLong = box.new(accumStartBarLong, accumHighLong + atr * 0.1, bar_index, accumLowLong - atr * 0.1,
+                 border_color=colBoxAccum, bgcolor=colBoxAccum, border_width=1, border_style=line.style_dashed)
+            f_pool_box(accumBoxLong, maxObjectsPerPool)
+        box aggBuyBox = box.new(bar_index - 1, high + atr * 0.2, bar_index, low - atr * 0.2,
+             border_color=colBoxAggression, bgcolor=colBoxAggression, border_width=2)
+        f_pool_box(aggBuyBox, maxObjectsPerPool)
+        last3ABoxLongBar := bar_index
+    if (tripleAAggrBear or aggressiveSell) and (tripleAShortSetup or tripleAPremiumShort) and (na(last3ABoxShortBar) or last3ABoxShortBar != bar_index)
+        if not na(accumStartBarShort)
+            box accumBoxShort = box.new(accumStartBarShort, accumHighShort + atr * 0.1, bar_index, accumLowShort - atr * 0.1,
+                 border_color=colBoxAccum, bgcolor=colBoxAccum, border_width=1, border_style=line.style_dashed)
+            f_pool_box(accumBoxShort, maxObjectsPerPool)
+        box aggSellBox = box.new(bar_index - 1, high + atr * 0.2, bar_index, low - atr * 0.2,
+             border_color=color.new(#FF1744, 70), bgcolor=color.new(#FF1744, 70), border_width=2)
+        f_pool_box(aggSellBox, maxObjectsPerPool)
+        last3ABoxShortBar := bar_index
+
+if visShowTripleALine and barstate.isconfirmed and execSession
+    bool confirm3ALongLine = (tripleALongSetup or tripleAPremiumLong) and not na(absLevelPriceLong) and not na(absStartBarLong)
+    bool confirm3AShortLine = (tripleAShortSetup or tripleAPremiumShort) and not na(absLevelPriceShort) and not na(absStartBarShort)
+    if freshAbsPhaseLong and not na(absLevelPriceLong) and not na(absStartBarLong) and (na(lastAbsLineLongBar) or lastAbsLineLongBar != absStartBarLong)
+        line absUpLine = line.new(absStartBarLong, absLevelPriceLong, absStartBarLong + 20, absLevelPriceLong, color=colAbsLine, width=1, style=line.style_dotted)
+        f_pool_line(absUpLine, maxObjectsPerPool)
+        lastAbsLineLongBar := absStartBarLong
+    else if confirm3ALongLine and (na(lastAbsLineLongBar) or lastAbsLineLongBar != bar_index)
+        line absUpLineConfirm = line.new(absStartBarLong, absLevelPriceLong, bar_index + 12, absLevelPriceLong, color=colAbsLine, width=1, style=line.style_dotted)
+        f_pool_line(absUpLineConfirm, maxObjectsPerPool)
+        lastAbsLineLongBar := bar_index
+    if freshAbsPhaseShort and not na(absLevelPriceShort) and not na(absStartBarShort) and (na(lastAbsLineShortBar) or lastAbsLineShortBar != absStartBarShort)
+        line absDnLine = line.new(absStartBarShort, absLevelPriceShort, absStartBarShort + 20, absLevelPriceShort, color=colAbsLine, width=1, style=line.style_dotted)
+        f_pool_line(absDnLine, maxObjectsPerPool)
+        lastAbsLineShortBar := absStartBarShort
+    else if confirm3AShortLine and (na(lastAbsLineShortBar) or lastAbsLineShortBar != bar_index)
+        line absDnLineConfirm = line.new(absStartBarShort, absLevelPriceShort, bar_index + 12, absLevelPriceShort, color=colAbsLine, width=1, style=line.style_dotted)
+        f_pool_line(absDnLineConfirm, maxObjectsPerPool)
+        lastAbsLineShortBar := bar_index
+
+if visShowTripleALabel and barstate.isconfirmed and inSession
+    bool triShowPremLong  = tripleAPremiumLong and not hasFinalLongLabel and (na(last3ALabelLongBar) or last3ALabelLongBar != bar_index)
+    bool triShowStdLong   = tripleALongSetup and not tripleAPremiumLong and not hasFinalLongLabel and (na(last3ALabelLongBar) or last3ALabelLongBar != bar_index)
+    bool triShowPremShort = tripleAPremiumShort and not hasFinalShortLabel and (na(last3ALabelShortBar) or last3ALabelShortBar != bar_index)
+    bool triShowStdShort  = tripleAShortSetup and not tripleAPremiumShort and not hasFinalShortLabel and (na(last3ALabelShortBar) or last3ALabelShortBar != bar_index)
+
+    if triShowPremLong
+        label triPremLongLbl = label.new(bar_index, low, text='3A LONG ★★★', xloc=xloc.bar_index, yloc=yloc.belowbar,
+             style=label.style_arrowup, color=entryColorLong, textcolor=color.white, size=signalLabelSize)
+        f_pool_label(triPremLongLbl, maxObjectsPerPool)
+        last3ALabelLongBar := bar_index
+    else if triShowStdLong
+        label triStdLongLbl = label.new(bar_index, low, text='3A LONG ★★', xloc=xloc.bar_index, yloc=yloc.belowbar,
+             style=label.style_arrowup, color=entryColorLong, textcolor=color.white, size=signalLabelSize)
+        f_pool_label(triStdLongLbl, maxObjectsPerPool)
+        last3ALabelLongBar := bar_index
+
+    if triShowPremShort
+        label triPremShortLbl = label.new(bar_index, high, text='3A SHORT ★★★', xloc=xloc.bar_index, yloc=yloc.abovebar,
+             style=label.style_arrowdown, color=entryColorShort, textcolor=color.white, size=signalLabelSize)
+        f_pool_label(triPremShortLbl, maxObjectsPerPool)
+        last3ALabelShortBar := bar_index
+    else if triShowStdShort
+        label triStdShortLbl = label.new(bar_index, high, text='3A SHORT ★★', xloc=xloc.bar_index, yloc=yloc.abovebar,
+             style=label.style_arrowdown, color=entryColorShort, textcolor=color.white, size=signalLabelSize)
+        f_pool_label(triStdShortLbl, maxObjectsPerPool)
+        last3ALabelShortBar := bar_index
+
+// =============================================================================
+// DASHBOARD
+// =============================================================================
+bool showDashboard = dashboardMode != 'Off'
+bool debugDashboard = dashboardMode == 'Debug'
+bool traderDashboard = dashboardMode == 'Trader'
+
+string activeSetupName = 'NONE'
+if longSignal
+    activeSetupName := activeLongSetup
+else if shortSignal
+    activeSetupName := activeShortSetup
+else if activeLongSetup != 'NONE' and activeShortSetup == 'NONE'
+    activeSetupName := activeLongSetup
+else if activeShortSetup != 'NONE' and activeLongSetup == 'NONE'
+    activeSetupName := activeShortSetup
+else if activeLongSetup != 'NONE' and activeShortSetup != 'NONE'
+    activeSetupName := longQualityScore > shortQualityScore ? activeLongSetup : shortQualityScore > longQualityScore ? activeShortSetup : 'Mixed Context'
+else if aggressionBullStrong and not aggressionBearStrong
+    activeSetupName := marketTrend ? 'TREND LONG' : marketReversion ? 'REVERSION LONG' : 'NONE'
+else if aggressionBearStrong and not aggressionBullStrong
+    activeSetupName := marketTrend ? 'TREND SHORT' : marketReversion ? 'REVERSION SHORT' : 'NONE'
+string activeSetupReadable = f_setup_readable(activeSetupName)
+
+string marketBiasReadable = rawMarketBiasDir == 1 ? 'Bullish' : rawMarketBiasDir == -1 ? 'Bearish' : marketBias == 'BULL' ? 'Bullish' : marketBias == 'BEAR' ? 'Bearish' : 'Neutral'
+
+string marketModelReadable = rawMarketModelState == 1 ? 'Trend' : rawMarketModelState == -1 ? 'Reversion' : marketModel == 'TREND' ? 'Trend' : marketModel == 'REVERSION' ? 'Reversion' : 'Neutral'
+string gapStateReadable = gapUp or gapDown ? (gapFilled ? 'Filled' : 'Open') : 'No Gap'
+bool gapIsDollarStyle = syminfo.type == 'stock' or syminfo.type == 'fund' or syminfo.type == 'dr'
+string gapValueReadable = 'No Gap'
+if gapUp or gapDown
+    string gapSign = gapSize > 0 ? '+' : gapSize < 0 ? '-' : ''
+    string gapAbs = str.tostring(math.abs(gapSize), '#.##')
+    gapValueReadable := gapIsDollarStyle ? (gapSign + '$' + gapAbs) : (gapSign + gapAbs + ' pts')
+string gapDashboardReadable = gapUp or gapDown ? (gapValueReadable + ' | ' + gapStateReadable) : 'No Gap'
+string phaseTxt = 'IDLE'
+if tripleAPhaseLong == 1
+    phaseTxt := 'A1 LONG'
+else if tripleAPhaseLong == 2
+    phaseTxt := 'A2 LONG'
+else if tripleAPhaseLong == 3
+    phaseTxt := 'A3 LONG'
+else if tripleAPhaseShort == 1
+    phaseTxt := 'A1 SHORT'
+else if tripleAPhaseShort == 2
+    phaseTxt := 'A2 SHORT'
+else if tripleAPhaseShort == 3
+    phaseTxt := 'A3 SHORT'
+string phaseReadable = f_phase_readable(phaseTxt)
+string longLocationReadable = f_location_readable(locationLongTag)
+string shortLocationReadable = f_location_readable(locationShortTag)
+string dashboardLocation = 'No Key Location'
+if longSignal
+    dashboardLocation := longLocationReadable
+else if shortSignal
+    dashboardLocation := shortLocationReadable
+else if longLocationReadable != 'No Key Location' and shortLocationReadable == 'No Key Location'
+    dashboardLocation := longLocationReadable
+else if shortLocationReadable != 'No Key Location' and longLocationReadable == 'No Key Location'
+    dashboardLocation := shortLocationReadable
+else if longLocationReadable == shortLocationReadable and longLocationReadable != 'No Key Location'
+    dashboardLocation := longLocationReadable
+else if locationLongScore > locationShortScore
+    dashboardLocation := longLocationReadable
+else if locationShortScore > locationLongScore
+    dashboardLocation := shortLocationReadable
+else if marketBias == 'BULL' and longLocationReadable != 'No Key Location'
+    dashboardLocation := longLocationReadable
+else if marketBias == 'BEAR' and shortLocationReadable != 'No Key Location'
+    dashboardLocation := shortLocationReadable
+string dashboardAggression = longSignal ? (aggressionBullStrong ? 'Strong Buying' : aggressionBullValid ? 'Valid Buying' : aggressionBullWeak ? 'Weak Buying' : 'No Clear Aggression') : shortSignal ? (aggressionBearStrong ? 'Strong Selling' : aggressionBearValid ? 'Valid Selling' : aggressionBearWeak ? 'Weak Selling' : 'No Clear Aggression') : aggrBullScore > aggrBearScore ? (aggressionBullStrong ? 'Strong Buying' : aggressionBullValid ? 'Valid Buying' : aggressionBullWeak ? 'Weak Buying' : 'No Clear Aggression') : aggrBearScore > aggrBullScore ? (aggressionBearStrong ? 'Strong Selling' : aggressionBearValid ? 'Valid Selling' : aggressionBearWeak ? 'Weak Selling' : 'No Clear Aggression') : 'Balanced Aggression'
+string overnightStatusReadable = not pmReady ? 'Overnight Range Building' : atPMHigh ? 'At Overnight High' : atPMLow ? 'At Overnight Low' : abovePMHigh ? 'Above Overnight High' : belowPMLow ? 'Below Overnight Low' : 'Inside Overnight Range'
+color activeSetupColor = longSignal ? color.lime : shortSignal ? color.red : color.silver
+color gapDashboardColor = gapUp ? (gapFilled ? color.lime : color.green) : gapDown ? (gapFilled ? color.lime : color.red) : color.silver
+
+string overnightStatus = not pmReady ? 'BUILDING' : atPMHigh ? 'AT O/N HIGH' : atPMLow ? 'AT O/N LOW' : abovePMHigh ? 'ABOVE O/N HIGH' : belowPMLow ? 'BELOW O/N LOW' : 'READY'
+color pmStatusColor = atPMHigh or atPMLow ? color.yellow : abovePMHigh ? color.lime : belowPMLow ? color.red : color.silver
+
+var table info = table.new(f_dash_position(dashboardPosition), 2, 13,
+     bgcolor=color.new(color.black, 85), border_width=1,
+     frame_color=color.new(color.gray, 60), frame_width=1)
+
+if barstate.islast
+    table.clear(info, 0, 0, 1, 12)
+
+if showDashboard and barstate.islast
+    string headerTxt = traderDashboard ? ' OrderFlow Scalper Pro ' : ' OrderFlow Scalper Pro DEBUG '
+    table.cell(info, 0, 0, headerTxt, text_color=color.yellow, text_size=size.small, text_halign=text.align_center, bgcolor=color.new(color.black, 60))
+    table.merge_cells(info, 0, 0, 1, 0)
+
+    if traderDashboard
+        table.cell(info, 0, 1, ' Bias ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 1, marketBiasReadable, text_color=rawMarketBiasDir == 1 ? color.lime : rawMarketBiasDir == -1 ? color.red : color.aqua, text_size=size.small)
+
+        table.cell(info, 0, 2, ' Setup ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 2, activeSetupReadable, text_color=activeSetupColor, text_size=size.small)
+
+        table.cell(info, 0, 3, ' Market Model ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 3, marketModelReadable, text_color=rawMarketModelState == 1 ? color.blue : rawMarketModelState == -1 ? color.purple : color.teal, text_size=size.small)
+
+        table.cell(info, 0, 4, ' Key Location ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 4, dashboardLocation, text_color=color.white, text_size=size.small)
+
+        table.cell(info, 0, 5, ' Aggression ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 5, dashboardAggression, text_color=color.white, text_size=size.small)
+
+        table.cell(info, 0, 6, ' 3A Status ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 6, phaseReadable, text_color=color.orange, text_size=size.small)
+
+        table.cell(info, 0, 7, ' Gap ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 7, gapDashboardReadable, text_color=gapDashboardColor, text_size=size.small)
+
+        string sessionModelTxt = sessionFavorsTrend ? 'NY Cash (Trend)' : 'Overnight (Reversion)'
+        color sessionModelColor = sessionFavorsTrend ? color.blue : color.purple
+        table.cell(info, 0, 8, ' Session ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 8, sessionModelTxt, text_color=sessionModelColor, text_size=size.small)
+
+        table.cell(info, 0, 9, ' Overnight ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 9, overnightStatusReadable, text_color=pmStatusColor, text_size=size.small)
+    else
+        table.cell(info, 0, 1, ' Bias ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 1, marketBias, text_color=rawMarketBiasDir == 1 ? color.lime : rawMarketBiasDir == -1 ? color.red : color.aqua, text_size=size.tiny)
+
+        table.cell(info, 0, 2, ' Setup ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 2, activeSetupName, text_color=activeSetupColor, text_size=size.small)
+
+        table.cell(info, 0, 3, ' Model ', text_color=color.gray, text_size=size.tiny)
+        table.cell(info, 1, 3, marketModel, text_color=rawMarketModelState == 1 ? color.blue : rawMarketModelState == -1 ? color.purple : color.teal, text_size=size.tiny)
+
+        table.cell(info, 0, 4, ' Gap ', text_color=color.gray, text_size=size.tiny)
+        table.cell(info, 1, 4, gapDashboardReadable, text_color=gapDashboardColor, text_size=size.tiny)
+
+        table.cell(info, 0, 5, ' Location ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 5, locationLongTag + ' / ' + locationShortTag, text_color=color.white, text_size=size.small)
+
+        table.cell(info, 0, 6, ' Aggression L/S ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 6, aggressionBullTier + ' / ' + aggressionBearTier + '  (' + str.tostring(aggrBullScore) + ' / ' + str.tostring(aggrBearScore) + ')', text_color=color.white, text_size=size.small)
+
+        table.cell(info, 0, 7, ' 3A Quality L/S ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 7, str.tostring(tripleAQualLong) + ' / ' + str.tostring(tripleAQualShort), text_color=color.white, text_size=size.small)
+
+        string dbgSessionTxt = sessionFavorsTrend ? 'NY (Trend)' : 'O/N (Rev)'
+        table.cell(info, 0, 8, ' Session ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 8, dbgSessionTxt, text_color=sessionFavorsTrend ? color.blue : color.purple, text_size=size.small)
+
+        table.cell(info, 0, 9, ' PM ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 9, overnightStatus, text_color=pmStatusColor, text_size=size.small)
+
+        table.cell(info, 0, 10, ' Phase ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 10, phaseTxt, text_color=color.orange, text_size=size.small)
+
+        table.cell(info, 0, 11, ' Daily Signals ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 11, 'P ' + str.tostring(dayPremLongSignals + dayPremShortSignals) + ' | S ' + str.tostring(dayStdLongSignals + dayStdShortSignals) + ' | 2 ' + str.tostring(daySecLongSignals + daySecShortSignals), text_color=color.silver, text_size=size.small)
+
+        table.cell(info, 0, 12, ' Setup Quality L/S ', text_color=color.gray, text_size=size.small)
+        table.cell(info, 1, 12, activeLongQuality + ' / ' + activeShortQuality + '  (' + str.tostring(longQualityScore) + ' / ' + str.tostring(shortQualityScore) + ')', text_color=color.silver, text_size=size.small)
+
+// =============================================================================
+// ALERT CONDITIONS (RELEASE)
+// =============================================================================
+int modelTrendInt       = marketModel == 'TREND' ? 1 : 0
+int modelReversionInt   = marketModel == 'REVERSION' ? 1 : 0
+int modelNeutralInt     = marketModel == 'NEUTRAL' ? 1 : 0
+bool modelShiftTrend     = ta.change(modelTrendInt) > 0
+bool modelShiftReversion = ta.change(modelReversionInt) > 0
+bool modelShiftNeutral   = ta.change(modelNeutralInt) > 0
+
+alertcondition(freshLongPremium,   title='AMT Premium Long',      message='AMT Premium Long setup')
+alertcondition(freshShortPremium,  title='AMT Premium Short',     message='AMT Premium Short setup')
+alertcondition(freshLongTripleA,   title='AMT 3A Standard Long',  message='AMT 3A Standard Long setup')
+alertcondition(freshShortTripleA,  title='AMT 3A Standard Short', message='AMT 3A Standard Short setup')
+alertcondition(freshLongSecondary, title='AMT Secondary Long',    message='AMT Secondary Long setup')
+alertcondition(freshShortSecondary,title='AMT Secondary Short',   message='AMT Secondary Short setup')
+alertcondition(modelShiftTrend,    title='AMT Model Shift Trend',     message='Market model shifted to TREND')
+alertcondition(modelShiftReversion,title='AMT Model Shift Reversion', message='Market model shifted to REVERSION')
+alertcondition(modelShiftNeutral,  title='AMT Model Shift Neutral',   message='Market model shifted to NEUTRAL')
+alertcondition(gapEvent and useGapAnalysis and gapUp,   title='AMT Gap Up',   message='Gap Up detected')
+alertcondition(gapEvent and useGapAnalysis and gapDown, title='AMT Gap Down', message='Gap Down detected')
+alertcondition(usePMlevels and pmReady and atPMHigh, title='AMT At Overnight High', message='Price at Overnight High')
+alertcondition(usePMlevels and pmReady and atPMLow,  title='AMT At Overnight Low',  message='Price at Overnight Low')
+
+// Runtime alert() calls intentionally removed.
+// Use TradingView alertcondition() entries above to avoid duplicate notifications.

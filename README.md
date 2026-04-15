@@ -1,12 +1,13 @@
 # OrderFlow Suite NT8.1 (Español)
 
-> Última actualización: 2026-04-13
+> Última actualización: 2026-04-14 — v1.0.3
 
 Suite de análisis de volumen y order flow para **NinjaTrader 8.1**, enfocada en **Futuros**, especialmente en **Nasdaq (NQ)** y **S&P 500 E-mini (ES)**.
+Incluye también scripts **Pine para TradingView**.
 
 ## ¿Qué incluye?
 
-Indicadores principales:
+### Indicadores NinjaTrader 8.1
 
 - `Bookmap.cs`
 - `OrderFlow.cs`
@@ -25,6 +26,11 @@ AddOns requeridos:
 - `AddOns/SE.cs`
 - `AddOns/WyckoffRender.cs`
 
+### Scripts TradingView (Pine Script v6)
+
+- `AddOns/OrderFlowScalperPro.pine` — Indicador de order flow y scalping para TradingView.
+- `AddOns/SMC_ICT_Suite_Pro_v25_v10.11p_v30c_compile_fix_obstore_valuewhen.pine` — Suite SMC/ICT completa: Order Blocks, FVG, MSS, BOS, Liquidity, entre otros.
+
 ---
 
 ## Enfoque del Kit
@@ -38,17 +44,16 @@ También puede utilizarse en otros futuros compatibles con NinjaTrader, pero la 
 
 ---
 
-## Instalación rápida (recomendada)
+## Instalación rápida NinjaTrader (recomendada)
 
 ### Opción A: Importar ZIP (rápido)
 
 1. En NinjaTrader abre: **Control Center → Tools → Import → NinjaScript Add-On...**
-2. Selecciona: `OrderFlow-Suite-NT8-v1.0.2-Import.zip`.
+2. Selecciona el ZIP versioned de los Releases, por ejemplo: `OrderFlow-Suite-NT8-v1.0.3-Import.zip`.
 3. Reinicia NinjaTrader.
 4. Compila en NinjaScript Editor (`F5`).
 
-> El paquete ZIP principal se genera desde `dist/OrderFlow-Suite-NT8-v1.0.2-Import.zip`.
-> Si NinjaTrader muestra error de versión al importar, usa el paquete source-only (`dist/OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip`) y compila con `F5`.
+> Si NinjaTrader muestra error de versión al importar, usa el paquete source-only y compila con `F5`.
 
 ### Opción B: Instalación manual
 
@@ -60,14 +65,22 @@ También puede utilizarse en otros futuros compatibles con NinjaTrader, pero la 
 
 ### Opción C: Source-Only (máxima compatibilidad entre builds)
 
-1. Descarga `OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip`.
+1. Descarga `OrderFlow-Suite-NT8-v1.0.3-SourceOnly.zip`.
 2. Copia `SourceOnly/AddOns/*.cs` en `Documents\NinjaTrader 8\bin\Custom\AddOns\`.
 3. Copia `SourceOnly/Indicators/*.cs` en `Documents\NinjaTrader 8\bin\Custom\Indicators\`.
 4. Compila en NinjaScript Editor (`F5`).
 
 ---
 
-## Configuración obligatoria
+## Instalación scripts TradingView
+
+1. Descarga `OrderFlow-Suite-TradingView-v1.0.3.zip` desde Releases.
+2. En TradingView: abre **Pine Editor** → pega el contenido del archivo `.pine`.
+3. Haz clic en **Add to chart**.
+
+---
+
+## Configuración obligatoria (NinjaTrader)
 
 Activa **Tick Replay**:
 
@@ -135,13 +148,34 @@ En un gráfico:
 
 ## Estructura del repositorio
 
-- `AddOns/` → utilidades internas de cálculo/render.
-- `*.cs` (raíz) → indicadores principales.
-- `dist/NT8_Import_Package/` → paquete listo para importación.
-- `dist/OrderFlow-Suite-NT8-v1.0.2-Import.zip` → ZIP principal para **Import NinjaScript Add-On**.
-- `dist/OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip` → ZIP source-only para copiar/pegar y compilar (evita problemas de versión de import).
-- `dist/OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip` → ZIP legado (compatibilidad).
-- `.github/workflows/publish-nt8-package.yml` → publica automáticamente ZIP en **Releases** y paquete en **GitHub Packages (GHCR)**.
+```
+.
+├── AddOns/
+│   ├── SE.cs                          # Librería de cálculo/matemáticas (requerida)
+│   ├── WyckoffRender.cs               # Capa de renderizado SharpDX (requerida)
+│   ├── OrderFlowScalperPro.pine       # Script Pine TradingView
+│   └── SMC_ICT_Suite_Pro_v25_*.pine   # Suite SMC/ICT Pine TradingView
+├── *.cs (raíz)                        # Indicadores NT8 principales
+├── dist/
+│   ├── NT8_Import_Package/            # Paquete para Import NinjaScript Add-On
+│   │   ├── Indicators/
+│   │   ├── AddOns/
+│   │   └── TradingView/               # Scripts Pine incluidos
+│   ├── SourceOnly/                    # Copia manual de archivos .cs
+│   │   ├── Indicators/
+│   │   ├── AddOns/
+│   │   └── TradingView/               # Scripts Pine incluidos
+│   └── *.zip                          # ZIPs versionados (generados por CI)
+└── .github/workflows/
+    └── publish-nt8-package.yml        # CI: genera releases versionados automáticamente
+```
+
+---
+
+## Versionado
+
+Cada push a `main` genera automáticamente un nuevo release versionado (ej. `v1.0.3`).
+La versión se controla desde el archivo `VERSION` en la raíz del repositorio.
 
 ---
 

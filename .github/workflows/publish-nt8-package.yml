@@ -1,9 +1,8 @@
-name: Publish NT8 Import Package
+name: Publish NT8 Package
 
 on:
   push:
-    branches:
-      - "**"
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
@@ -18,60 +17,88 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Ensure ZIP packages are fresh
+      - name: Read version
+        id: version
+        run: echo "VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_OUTPUT
+
+      - name: Sync source files to dist packages
         run: |
+          # Sync root indicators -> dist (single source of truth)
+          cp BigTrades.cs VolumeAnalysisProfile.cs VolumeFilter.cs MarketVolume.cs \
+             OrderFlow.cs Bookmap.cs FairValueGaps.cs OrderBlocks.cs \
+             SupportResistance.cs PreviousDayLevels.cs NYPreMarketLevels.cs \
+             TripleA.cs SessionGap.cs SessionVWAP.cs MASeries.cs \
+             BollingerBands.cs ORBPro.cs MarketStructure.cs \
+             LiquiditySuite.cs PremiumDiscountZones.cs \
+             dist/NT8_Import_Package/Indicators/
+          cp BigTrades.cs VolumeAnalysisProfile.cs VolumeFilter.cs MarketVolume.cs \
+             OrderFlow.cs Bookmap.cs FairValueGaps.cs OrderBlocks.cs \
+             SupportResistance.cs PreviousDayLevels.cs NYPreMarketLevels.cs \
+             TripleA.cs SessionGap.cs SessionVWAP.cs MASeries.cs \
+             BollingerBands.cs ORBPro.cs MarketStructure.cs \
+             LiquiditySuite.cs PremiumDiscountZones.cs \
+             dist/SourceOnly/Indicators/
+          cp AddOns/SE.cs AddOns/WyckoffRender.cs dist/NT8_Import_Package/AddOns/
+          cp AddOns/SE.cs AddOns/WyckoffRender.cs dist/SourceOnly/AddOns/
+
+      - name: Build versioned ZIPs
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
           cd dist
-          rm -f OrderFlow-Suite-NT8-v1.0.2-Import.zip OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip
-          zip -rq OrderFlow-Suite-NT8-v1.0.2-Import.zip NT8_Import_Package
-          zip -rq OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip SourceOnly
-          cp OrderFlow-Suite-NT8-v1.0.2-Import.zip OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip
+          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-Import.zip"    NT8_Import_Package
+          zip -rq "OrderFlow-Suite-NT8-v${VERSION}-SourceOnly.zip" SourceOnly
 
-      - name: Delete previous release and tag
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const tagsToDelete = ["latest", "OrderFlow-Suite-NT8"];
-
-            for (const tag of tagsToDelete) {
-              try {
-                const release = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
-                core.info(`Deleting existing release id=${release.data.id} tag=${tag}`);
-                await github.rest.repos.deleteRelease({ owner, repo, release_id: release.data.id });
-              } catch (error) {
-                core.info(`No previous release found for tag ${tag}`);
-              }
-
-              try {
-                await github.rest.git.deleteRef({ owner, repo, ref: `tags/${tag}` });
-                core.info(`Deleted previous tag ${tag}`);
-              } catch (error) {
-                core.info(`No previous tag found for ${tag}`);
-              }
-            }
-
-      - name: Recreate latest tag at current commit
+      - name: Delete previous releases (keep only latest version)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git tag -f latest "${GITHUB_SHA}"
-          git push origin refs/tags/latest --force
+          VERSION=${{ steps.version.outputs.VERSION }}
+          gh release list --repo ${{ github.repository }} --limit 50 --json tagName,id \
+            | jq -r '.[] | select(.tagName != "v'"${VERSION}"'" and .tagName != "latest") | .tagName' \
+            | while read TAG; do
+                echo "Deleting old release: $TAG"
+                gh release delete "$TAG" --repo ${{ github.repository }} --yes --cleanup-tag 2>/dev/null || true
+              done
 
-      - name: Create Release
+      - name: Create / update versioned release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ steps.version.outputs.VERSION }}
+          name: "OrderFlow Suite NT8 v${{ steps.version.outputs.VERSION }}"
+          allowUpdates: true
+          makeLatest: true
+          replacesArtifacts: true
+          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip,dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip"
+          body: |
+            ## OrderFlow Suite NT8 v${{ steps.version.outputs.VERSION }}
+
+            | Archivo | Descripcion |
+            |---------|-------------|
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` | Importacion directa: **Tools -> Import NinjaScript Add-On** |
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip` | Copia manual de `.cs` (recomendado si hay error de version al importar) |
+
+            ### Indicadores incluidos
+            Bookmap - OrderFlow - VolumeAnalysisProfile - VolumeFilter - MarketVolume - BigTrades - FairValueGaps - OrderBlocks - SupportResistance - PreviousDayLevels - NYPreMarketLevels - TripleA - SessionGap - SessionVWAP - MASeries - BollingerBandsPro - ORBPro - MarketStructure - LiquiditySuite - PremiumDiscountZones
+
+            ### Requisito obligatorio
+            Activar **Tick Replay**: Tools -> Options -> Market Data -> Show Tick Replay
+
+      - name: Update latest tag
         uses: ncipollo/release-action@v1
         with:
           tag: latest
-          commit: ${{ github.sha }}
-          name: OrderFlow-Suite-NT8
-          allowUpdates: false
-          makeLatest: true
-          artifacts: "dist/OrderFlow-Suite-NT8-v1.0.2-Import.zip,dist/OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip,dist/OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip"
+          name: "OrderFlow Suite NT8 (latest) - v${{ steps.version.outputs.VERSION }}"
+          allowUpdates: true
+          makeLatest: false
+          replacesArtifacts: true
+          artifacts: "dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip,dist/OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip"
           body: |
-            Última versión lista para importar en NinjaTrader.
+            ## OrderFlow Suite NT8 - v${{ steps.version.outputs.VERSION }}
 
-            Archivos incluidos:
-            - OrderFlow-Suite-NT8-v1.0.2-Import.zip (principal)
-            - OrderFlow-Suite-NT8-v1.0.2-SourceOnly.zip (recomendado si hay error de versión al importar)
-            - OrderFlow-Suite-NT8-v1.0.2-Compat-Import.zip (compatibilidad)
+            | Archivo | Descripcion |
+            |---------|-------------|
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` | Importacion directa: **Tools -> Import NinjaScript Add-On** |
+            | `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-SourceOnly.zip` | Copia manual de `.cs` |
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -80,10 +107,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push GHCR package (latest)
+      - name: Build and Push GHCR package
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile.package
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/orderflow-suite-nt8:latest
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/orderflow-suite-nt8:latest
+            ghcr.io/${{ github.repository_owner }}/orderflow-suite-nt8:v${{ steps.version.outputs.VERSION }}

@@ -7,7 +7,6 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -1067,7 +1066,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		public Brush _TotalTextVolumeColor
 		{ get; set; }
 		[Browsable(false)]
-		public string _TotalTextVolumeColorColorSerializable
+		public string _TotalTextVolumeColorSerializable
 		{
 			get { return Serialize.BrushToString(_TotalTextVolumeColor); }
 			set { _TotalTextVolumeColor = Serialize.StringToBrush(value); }
