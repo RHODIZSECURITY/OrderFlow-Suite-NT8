@@ -29,7 +29,7 @@
 
 ## Proceso por cada indicador
 ```bash
-# 1. Crear el nuevo archivo consolidado
+# 1. Crear el nuevo archivo consolidado (leer los originales primero)
 # 2. Borrar los originales
 git rm PreviousDayLevels.cs ORBPro.cs NYPreMarketLevels.cs SessionVWAP.cs SessionGap.cs
 # 3. Añadir nuevo
@@ -40,65 +40,175 @@ git commit -m "v1.1.0: consolidar X indicadores → NuevoArchivo"
 git push -u origin main
 ```
 
-## Especificaciones LevelsSuite.cs (PRÓXIMO)
-- **Consolida**: PreviousDayLevels + ORBPro + NYPreMarketLevels + SessionVWAP + SessionGap
-- **Calculate**: `OnEachTick` (requerido por SessionVWAP y SessionGap)
-- **AddDataSeries**: `BarsPeriodType.Day, 1` en `State.Configure` (para PDH/PDL)
-- **BarsInProgress == 1**: actualiza `_prevHigh/_prevLow` y retorna
-- **Plots** (4, de SessionVWAP): `OvernightHigh`, `OvernightLow`, `OvernightVWAP`, `SessionVWAPLine`
-- **Grupos de propiedades**:
-  1. `Previous Day Levels` — ShowPDH, ShowPDL, ShowPDMid, ShowPDLabels, colores PDH/PDL/Mid
-  2. `NY Pre-Market Levels` — PmStart, PmEnd (HHmmss), ShowPMHigh, ShowPMVwap, ShowPMLabels, colores
-  3. `Session VWAP` — ShowSessionVWAP, color (anclado a NY open 09:30)
-  4. `ORB Pro` — OrbDuration (min), OrbCutoffHour, Enable Break/Trap/Reversal, Show Fill/Labels, colores
-  5. `Session Gap` — GapMinAtr, ShowGapLine, ShowGapLabel, colores Up/Down/Filled
-- **Helper**: `IsNYCash(DateTime t)` usa `TimeSpan` (no `h*100+m`)
-- **Helper**: `IsInPM(int hhmmss)` compara vs `_pmStart/_pmEnd`
-- **Namespace**: `NinjaTrader.NinjaScript.Indicators.WyckoffZen`
+---
+
+## Especificaciones LevelsSuite.cs (PRÓXIMO — leer los 5 .cs originales antes de escribir)
+
+**Consolida**: PreviousDayLevels.cs + ORBPro.cs + NYPreMarketLevels.cs + SessionVWAP.cs + SessionGap.cs
+
+### Estructura obligatoria
+```csharp
+// Using declarations
+using System;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.Windows.Media;
+using System.Xml.Serialization;
+using NinjaTrader.Cbi;
+using NinjaTrader.Data;
+using NinjaTrader.Gui;
+using NinjaTrader.Gui.Chart;
+using NinjaTrader.NinjaScript;
+using NinjaTrader.NinjaScript.Indicators;
+
+namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+{
+    public class LevelsSuite : Indicator { ... }
+}
+```
+
+### OnStateChange — SetDefaults
+- `Calculate = Calculate.OnEachTick`
+- `IsSuspendedWhileInactive = true`
+- 4 plots: `AddPlot(new Stroke(Brushes.Orange, 2), PlotStyle.HLine, "OvernightHigh")`
+- 4 plots: OvernightHigh, OvernightLow, OvernightVWAP (PlotStyle.Line), SessionVWAPLine (PlotStyle.Line)
+
+### OnStateChange — Configure
+```csharp
+AddDataSeries(BarsPeriodType.Day, 1);  // para PDH/PDL
+```
+
+### OnBarUpdate — primeras líneas obligatorias
+```csharp
+// Daily series handler
+if (BarsInProgress == 1)
+{
+    if (CurrentBars[1] >= 2)
+    {
+        _prevHigh = Highs[1][1];
+        _prevLow  = Lows[1][1];
+    }
+    return;
+}
+if (CurrentBars[0] < 1 || CurrentBars[1] < 2) return;
+```
+
+### Helpers obligatorios
+```csharp
+// CORRECTO — usar TimeSpan, NO h*100+m
+private bool IsNYCash(DateTime t)
+{
+    TimeSpan ts = t.TimeOfDay;
+    return ts >= new TimeSpan(9, 30, 0) && ts < new TimeSpan(16, 0, 0);
+}
+
+// PM check con HHmmss entero
+private bool IsInPM(int hhmmss) => hhmmss >= _pmStart && hhmmss <= _pmEnd;
+```
+
+### Plots — asignación en OnBarUpdate
+```csharp
+Values[0][0] = (_showPMHigh && _pmReady) ? _pmHighFinal : double.NaN;
+Values[1][0] = (_showPMHigh && _pmReady) ? _pmLowFinal  : double.NaN;
+Values[2][0] = (_showPMVwap && !double.IsNaN(_pmVwapFinal)) ? _pmVwapFinal : double.NaN;
+Values[3][0] = (_showSessionVWAP && _sessVwapDenom > 0)
+               ? _sessVwapNumer / _sessVwapDenom : double.NaN;
+```
+
+### Grupos de propiedades (orden)
+1. `Previous Day Levels` — ShowPDH, ShowPDL, ShowPDMid, ShowPDLabels + colores PDH/PDL/Mid
+2. `NY Pre-Market Levels` — PmStart(40000), PmEnd(93000) HHmmss, ShowPMHigh, ShowPMVwap, ShowPMLabels + colores
+3. `Session VWAP` — ShowSessionVWAP + color
+4. `ORB Pro` — OrbDuration(5min), OrbCutoffHour(11), EnableBreak, EnableTrap, EnableReversal, ShowFill, ShowLabels + colores
+5. `Session Gap` — GapMinAtr(0.5), ShowGapLine, ShowGapLabel + colores Up/Down/Filled
+
+### Exponer para estrategias (al final de Properties)
+```csharp
+[Browsable(false)] [XmlIgnore] public Series<double> OvernightHigh    => Values[0];
+[Browsable(false)] [XmlIgnore] public Series<double> OvernightLow     => Values[1];
+[Browsable(false)] [XmlIgnore] public Series<double> OvernightVWAP    => Values[2];
+[Browsable(false)] [XmlIgnore] public Series<double> SessionVWAPLine  => Values[3];
+[Browsable(false)] public double PrevHigh  => _prevHigh;
+[Browsable(false)] public double PrevLow   => _prevLow;
+[Browsable(false)] public bool   OrbReady  => _orbReady;
+[Browsable(false)] public double OrbHigh   => _orbHigh;
+[Browsable(false)] public double OrbLow    => _orbLow;
+[Browsable(false)] public bool   GapUp     => _gapUp;
+[Browsable(false)] public bool   GapDown   => _gapDown;
+[Browsable(false)] public bool   GapFilled => _gapFilled;
+```
+
+---
 
 ## Especificaciones SmartMoneyConcepts.cs
-- **Consolida**: FairValueGaps + OrderBlocks
-- **Enums dentro del namespace**: `FvgQuality`, `ObRangeMode`, `ObOverlapMode`
+- **Lee**: FairValueGaps.cs y OrderBlocks.cs antes de escribir
+- **Enums ANTES de la clase** (dentro del namespace):
+  ```csharp
+  public enum FvgQuality { Any, Displaced, Strong }
+  public enum ObRangeMode { FullCandle, BodyOnly }
+  public enum ObOverlapMode { Merge, KeepAll }
+  ```
 - **Grupos**: `FVG Delta`, `Order Blocks`
-- **Calculate**: `OnBarClose`
+- `Calculate = Calculate.OnBarClose`
+
+---
 
 ## Especificaciones StructureSuite.cs
-- **Consolida**: MarketStructure + LiquiditySuite + PremiumDiscountZones
+- **Lee**: MarketStructure.cs, LiquiditySuite.cs, PremiumDiscountZones.cs
+- **1 plot**: `Equilibrium` (de PremiumDiscountZones)
 - **Grupos**: `Market Structure`, `Liquidity Suite`, `Premium/Discount Zones`
-- **Plots**: 1 plot `Equilibrium` (de PremiumDiscountZones)
-- **Calculate**: `OnBarClose`
+- `Calculate = Calculate.OnBarClose`
+
+---
 
 ## Especificaciones OrderFlowSignals.cs
-- **Consolida**: BigTrades + TripleA
-- **Calculate**: `OnEachTick` (BigTrades lo requiere)
-- **Guard TripleA**: `if (!IsFirstTickOfBar) return;` para lógica de TripleA
-- **OnMarketData**: preservar de BigTrades (para bubbles de tick)
-- **Plots**: `PhaseLong`, `PhaseShort` (de TripleA)
+- **Lee**: BigTrades.cs, TripleA.cs antes de escribir
+- `Calculate = Calculate.OnEachTick` (BigTrades lo requiere)
+- **Guard TripleA en OnBarUpdate**:
+  ```csharp
+  // Lógica TripleA solo en primer tick de barra
+  if (IsFirstTickOfBar) { /* lógica TripleA */ }
+  ```
+- **Preservar OnMarketData** de BigTrades (para bubbles de tick)
+- **2 plots**: `PhaseLong`, `PhaseShort`
 - **Grupos**: `Big Trades — Bubbles`, `Absorption`, `Big Trades — Signals`, `Imbalances`, `TripleA`, `TripleA Visuals`, `Colors`
 
+---
+
 ## Especificaciones HeatMapFlow.cs
-- `git mv Bookmap.cs HeatMapFlow.cs`
-- Cambiar `class Bookmap` → `class HeatMapFlow`
-- Cambiar `Name = "Bookmap"` → `Name = "HeatMapFlow"`
+```bash
+git mv Bookmap.cs HeatMapFlow.cs
+# Luego editar el archivo:
+# - "class Bookmap" → "class HeatMapFlow"
+# - Name = "Bookmap" → Name = "HeatMapFlow"
+git add HeatMapFlow.cs
+git commit -m "v1.1.0: Bookmap → HeatMapFlow (rename)"
+git push -u origin main
+```
+
+---
 
 ## Especificaciones VolumeProfile.cs
-- **Consolida**: OrderFlow + MarketVolume + VolumeAnalysisProfile + VolumeFilter
-- Indicadores NT8-nativos (no tienen fuente Pine)
-- Unificar con toggles por sección
+- **Lee**: OrderFlow.cs, MarketVolume.cs, VolumeAnalysisProfile.cs, VolumeFilter.cs
+- Indicadores NT8-nativos (no Pine Script)
+- Unificar con bool toggles por sección
+
+---
 
 ## Archivos AddOns (NO tocar)
-- `AddOns/SE.cs` — ya auditado (fix div/0 + Math.PI)
+- `AddOns/SE.cs` — ya auditado
 - `AddOns/OrderFlow-Suite.cs` — no modificar
 
 ## CI/CD — Workflow
-- Archivo: `.github/workflows/publish-nt8-package.yml`
-- Usa `cp *.cs` glob → copia todos los .cs raíz automáticamente
+- `.github/workflows/publish-nt8-package.yml`
+- `cp *.cs` glob → copia todos los .cs raíz automáticamente
 - Push a main → limpia dist/ → copia .cs → genera ZIP → actualiza release v1.1.0
 
-## Reglas de desarrollo
-- **Rama única**: solo `main`
-- **Push después de cada indicador**
+## Reglas de desarrollo — CRÍTICAS
+- **Rama única**: solo `main`, nunca feature branches
+- **Push después de cada indicador** (no agrupar)
 - **Namespace**: `NinjaTrader.NinjaScript.Indicators.WyckoffZen`
-- **Rangos seguros**: `[Range(1, 5000)]` con `Math.Min(5000, value)` clamp
-- **NaN guards** en ATR, sqrt, divisiones
-- `IsNYCash()` usa `TimeSpan` (no entero `h*100+m`)
+- **Rangos**: `[Range(1, 5000)]` con `Math.Min(5000, value)` en setter
+- **NaN guards**: siempre antes de ATR, sqrt, divisiones
+- **IsNYCash()**: usa `TimeSpan`, NUNCA `h*100+m`
+- **NO preguntar** — leer archivos originales y ejecutar directamente
