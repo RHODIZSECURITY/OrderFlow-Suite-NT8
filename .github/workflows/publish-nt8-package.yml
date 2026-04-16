@@ -21,16 +21,14 @@ jobs:
         id: version
         run: echo "VERSION=$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_OUTPUT
 
-      - name: Sync source files to dist packages
+      - name: Sync source files to dist package
         run: |
-          cp BigTrades.cs VolumeAnalysisProfile.cs VolumeFilter.cs MarketVolume.cs \
-             OrderFlow.cs Bookmap.cs FairValueGaps.cs OrderBlocks.cs \
-             SupportResistance.cs PreviousDayLevels.cs NYPreMarketLevels.cs \
-             TripleA.cs SessionGap.cs SessionVWAP.cs MASeries.cs \
-             BollingerBands.cs ORBPro.cs MarketStructure.cs \
-             LiquiditySuite.cs PremiumDiscountZones.cs \
-             dist/NT8_Import_Package/Indicators/
-          cp AddOns/SE.cs AddOns/WyckoffRender.cs dist/NT8_Import_Package/AddOns/
+          # Limpia los indicadores anteriores para que solo queden los actuales
+          rm -f dist/NT8_Import_Package/Indicators/*.cs
+          # Copia todos los indicadores .cs de la raiz
+          cp *.cs dist/NT8_Import_Package/Indicators/
+          # Copia los AddOns de soporte
+          cp AddOns/SE.cs AddOns/OrderFlow-Suite.cs dist/NT8_Import_Package/AddOns/
 
       - name: Build versioned ZIP
         run: |
@@ -68,11 +66,17 @@ jobs:
             Descarga `OrderFlow-Suite-NT8-v${{ steps.version.outputs.VERSION }}-Import.zip` e importa en NinjaTrader:
             **Tools → Import NinjaScript Add-On**
 
-            ### Indicadores incluidos
-            Bookmap · OrderFlow · VolumeAnalysisProfile · VolumeFilter · MarketVolume ·
-            BigTrades · FairValueGaps · OrderBlocks · SupportResistance · PreviousDayLevels ·
-            NYPreMarketLevels · TripleA · SessionGap · SessionVWAP · MASeries ·
-            BollingerBandsPro · ORBPro · MarketStructure · LiquiditySuite · PremiumDiscountZones
+            ### Indicadores incluidos (arquitectura modular)
+            | Indicador | Contenido |
+            |-----------|-----------|
+            | **TrendSeries** | EMA Series (×4) + SMA Series (×5) + Bollinger Bands Pro |
+            | **LevelsSuite** | Previous Day H/L · ORB Pro · NY Pre-Market · Session VWAP · Session Gap |
+            | **SupportResistance** | Zonas S/R automaticas (Pivots / Donchian / CSID) |
+            | **SmartMoneyConcepts** | Fair Value Gaps + Order Blocks |
+            | **StructureSuite** | Market Structure (BOS/CHoCH) + Liquidity Suite + Premium/Discount Zones |
+            | **OrderFlowSignals** | Big Trades + Triple-A (absorcion → acumulacion → agresion) |
+            | **HeatMapFlow** | Profundidad de mercado y volumen por nivel de precio |
+            | **VolumeProfile** | Order Flow + Market Volume + Volume Analysis Profile + Volume Filter |
 
             ### Requisito
             Activar **Tick Replay**: Tools → Options → Market Data → Show Tick Replay
