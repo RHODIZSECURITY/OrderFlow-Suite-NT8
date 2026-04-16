@@ -162,9 +162,34 @@ Ambos archivos **deben estar instalados** antes de compilar cualquier indicador.
 
 ---
 
+## Historial de decisiones técnicas
+
+### Auditoría de seguridad (v1.0.3)
+
+Se corrigieron los siguientes problemas críticos detectados en revisión de código:
+
+| Archivo | Problema | Fix aplicado |
+|---|---|---|
+| `AddOns/SE.cs` | División por cero en `Math2.Percent()` | Guard `if (denom == 0) return 0;` |
+| `AddOns/SE.cs` | Literal `3.14` en `Atan2inDeg()` | Reemplazado por `Math.PI` |
+| `BollingerBandsPro.cs` (→ `TrendSeries.cs`) | `Math.Sqrt()` sin NaN guard | Añadido `if (double.IsNaN(variance)) return;` |
+| `SupportResistance.cs` | ATR(14) NaN propagado a cálculos de zona | `if (double.IsNaN(ATR(14)[0])) return;` early |
+| `MASeries.cs` (→ `TrendSeries.cs`) | `[Range(1, int.MaxValue)]` → memoria descontrolada | `[Range(1, 5000)]` + `Math.Min(5000, value)` en setters |
+| `.github/workflows/` | Nombres de archivo hardcoded en CI | Reemplazado por `cp *.cs` (glob) |
+
+### Consolidación 20 → 8 indicadores (v1.1.0)
+
+Los 20 indicadores individuales iniciales fueron consolidados en 8 archivos modulares para reducir superficie de instalación y simplificar mantenimiento. Las fusiones principales:
+
+- `MASeries.cs` + `BollingerBandsPro.cs` → **`TrendSeries.cs`**
+
+El resto de la consolidación lógica se refleja en los nombres de release (agrupaciones funcionales), pero los `.cs` de la raíz mantienen granularidad individual para facilitar actualizaciones independientes.
+
+---
+
 ## Seguridad y validación
 
-Reglas críticas aprendidas en auditorías anteriores:
+Reglas vigentes (resultado de la auditoría anterior — no revertir):
 
 1. **División por cero** — siempre verificar denominadores antes de dividir (`if (denom == 0) return;`)
 2. **NaN guards** — comprobar `double.IsNaN(value)` antes de usar en `Math.Sqrt()` o cálculos encadenados
