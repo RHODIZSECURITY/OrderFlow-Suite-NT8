@@ -1,146 +1,124 @@
-# OrderFlow Suite NT8.1 (Español)
+# OrderFlow Suite NT8 (Español)
 
-> Última actualización: 2026-04-14 — v1.0.3
+> Última actualización: 2026-04-16 — v1.1.0
 
 Suite de análisis de volumen y order flow para **NinjaTrader 8.1**, enfocada en **Futuros**, especialmente en **Nasdaq (NQ)** y **S&P 500 E-mini (ES)**.
-Incluye también scripts **Pine para TradingView**.
+
+---
 
 ## ¿Qué incluye?
 
 ### Indicadores NinjaTrader 8.1
 
-- `Bookmap.cs`
-- `OrderFlow.cs`
-- `VolumeAnalysisProfile.cs`
-- `VolumeFilter.cs`
-- `MarketVolume.cs`
-- `BigTrades.cs`
-- `PreviousDayLevels.cs`
-- `NYPreMarketLevels.cs`
-- `SupportResistance.cs`
-- `OrderBlocks.cs`
-- `FairValueGaps.cs`
+**Volumen y Order Flow**
+- `OrderFlow.cs` — Delta bid/ask en tiempo real
+- `VolumeAnalysisProfile.cs` — Perfil de volumen (POC, VAH, VAL)
+- `VolumeFilter.cs` — Filtro de velas por volumen
+- `MarketVolume.cs` — Histograma de volumen acumulado
+- `BigTrades.cs` — Burbujas visuales para trades de gran tamaño
+- `Bookmap.cs` — Heatmap de liquidez estilo Bookmap
 
-AddOns requeridos:
+**Niveles y Zonas**
+- `PreviousDayLevels.cs` — High, Low, Close, Open y VWAP del día anterior
+- `NYPreMarketLevels.cs` — Niveles pre-mercado NY + VWAP overnight
+- `SupportResistance.cs` — Zonas S/R dinámicas (ATR-based)
+- `OrderBlocks.cs` — Order Blocks institucionales
+- `FairValueGaps.cs` — Fair Value Gaps (FVGs)
+- `PremiumDiscountZones.cs` — Zonas Premium/Equilibrio/Descuento (Fibonacci)
 
-- `AddOns/SE.cs`
-- `AddOns/WyckoffRender.cs`
+**Estructura de Mercado y Liquidez**
+- `MarketStructure.cs` — BOS, CHoCH y MSS
+- `LiquiditySuite.cs` — Pools de liquidez y detección de sweeps
+- `ORBPro.cs` — Opening Range Breakout (Break / Trap / Reversal)
 
-### Scripts TradingView (Pine Script v6)
+**Series y Tendencia**
+- `TrendSeries.cs` — EMA ×4 + SMA ×5 + Bollinger Bands (todo en uno)
+- `TripleA.cs` — Señales SMC/ICT: Absorción → Acumulación → Agresión
+- `SessionVWAP.cs` — VWAP de sesión con SD1/SD2/SD3
+- `SessionGap.cs` — Gaps de apertura vs. cierre anterior
 
-- `AddOns/OrderFlowScalperPro.pine` — Indicador de order flow y scalping para TradingView.
-- `AddOns/SMC_ICT_Suite_Pro_v25_v10.11p_v30c_compile_fix_obstore_valuewhen.pine` — Suite SMC/ICT completa: Order Blocks, FVG, MSS, BOS, Liquidity, entre otros.
+**AddOns requeridos**
+- `AddOns/SE.cs` — Librería de cálculo y matemáticas
+- `AddOns/OrderFlow-Suite.cs` — Capa de renderizado SharpDX
 
 ---
 
 ## Enfoque del Kit
 
-Este kit está optimizado para lectura de flujo de órdenes en mercados de futuros con mayor liquidez intradía, con foco principal en:
+Optimizado para lectura de flujo de órdenes en futuros con alta liquidez intradía:
 
 - **NQ (Nasdaq-100 E-mini)**
 - **ES (S&P 500 E-mini)**
 
-También puede utilizarse en otros futuros compatibles con NinjaTrader, pero la configuración recomendada está pensada para NQ/ES.
+También compatible con otros futuros en NinjaTrader, pero la configuración recomendada está pensada para NQ/ES.
 
 ---
 
-## Instalación rápida NinjaTrader (recomendada)
+## Instalación rápida (recomendada)
 
-### Opción A: Importar ZIP (rápido)
+1. Descarga el ZIP del último release: `OrderFlow-Suite-NT8-v1.1.0-Import.zip`
+2. En NinjaTrader: **Control Center → Tools → Import → NinjaScript Add-On...**
+3. Selecciona el ZIP descargado.
+4. Reinicia NinjaTrader.
+5. Compila en NinjaScript Editor (`F5`).
 
-1. En NinjaTrader abre: **Control Center → Tools → Import → NinjaScript Add-On...**
-2. Selecciona el ZIP versioned de los Releases, por ejemplo: `OrderFlow-Suite-NT8-v1.0.3-Import.zip`.
-3. Reinicia NinjaTrader.
-4. Compila en NinjaScript Editor (`F5`).
+### Instalación manual (alternativa)
 
-> Si NinjaTrader muestra error de versión al importar, usa el paquete source-only y compila con `F5`.
-
-### Opción B: Instalación manual
-
-1. Copia los archivos de `AddOns/` a:
+1. Copia `AddOns/SE.cs` y `AddOns/OrderFlow-Suite.cs` a:
    `Documents\NinjaTrader 8\bin\Custom\AddOns\`
-2. Copia los indicadores (`Bookmap.cs`, `OrderFlow.cs`, etc.) a:
+2. Copia todos los `*.cs` de la raíz a:
    `Documents\NinjaTrader 8\bin\Custom\Indicators\`
 3. Abre NinjaScript Editor y compila (`F5`).
-
-### Opción C: Source-Only (máxima compatibilidad entre builds)
-
-1. Descarga `OrderFlow-Suite-NT8-v1.0.3-SourceOnly.zip`.
-2. Copia `SourceOnly/AddOns/*.cs` en `Documents\NinjaTrader 8\bin\Custom\AddOns\`.
-3. Copia `SourceOnly/Indicators/*.cs` en `Documents\NinjaTrader 8\bin\Custom\Indicators\`.
-4. Compila en NinjaScript Editor (`F5`).
-
----
-
-## Instalación scripts TradingView
-
-1. Descarga `OrderFlow-Suite-TradingView-v1.0.3.zip` desde Releases.
-2. En TradingView: abre **Pine Editor** → pega el contenido del archivo `.pine`.
-3. Haz clic en **Add to chart**.
 
 ---
 
 ## Configuración obligatoria (NinjaTrader)
 
-Activa **Tick Replay**:
+Activa **Tick Replay** — requerido para order flow en tiempo real:
 
-1. **Tools → Options → Market Data → Show Tick Replay**.
-2. En cada chart: **Data Series → Tick Replay**.
+1. **Tools → Options → Market Data → Show Tick Replay**
+2. En cada chart: **Data Series → Tick Replay**
 
-Sin Tick Replay, parte del cálculo de volumen/order flow puede no mostrarse correctamente.
+Sin Tick Replay, el cálculo de volumen/order flow no se mostrará correctamente.
 
 ---
 
 ## Uso básico
 
-En un gráfico:
+En un gráfico de NinjaTrader:
 
-1. Clic derecho → **Indicators**.
-2. Agrega alguno de estos:
-   - **Book Map**
-   - **Order Flow**
-   - **Volume Analysis Profile**
-   - **Volume Filter**
-   - **Market Volume**
-   - **Big Trades**
-   - **Previous Day Levels**
-   - **NY PreMarket Levels**
-   - **Support Resistance**
-   - **Order Blocks**
-   - **Fair Value Gaps**
+1. Clic derecho → **Indicators**
+2. Agrega los indicadores deseados (todos disponibles bajo el namespace `OrderFlow_Suite_RHODIZ_v1_0_0` o `WyckoffZen`)
 
-### Preset recomendado NQ/ES (Big Trades)
+### Preset recomendado NQ/ES — Big Trades
 
-- **NQ**: `Min trade size = 20 ~ 50`
-- **ES**: `Min trade size = 50 ~ 150`
-- `Min bubble (ticks) = 2`
-- `Max bubble (ticks) = 12 ~ 18`
-- `Volume scale = 25 (NQ) / 40 (ES)`
-- `Bubble width (sec) = 2`
-- `Bubble opacity % = 55`
-- `Show size text = false` (actívalo solo si quieres ver el tamaño exacto encima de cada burbuja)
+| Parámetro | NQ | ES |
+|---|---|---|
+| Min trade size | 20–50 | 50–150 |
+| Min bubble (ticks) | 2 | 2 |
+| Max bubble (ticks) | 12–18 | 12–18 |
+| Volume scale | 25 | 40 |
+| Bubble width (sec) | 2 | 2 |
+| Bubble opacity % | 55 | 55 |
+| Show size text | false | false |
 
 ---
 
 ## Solución de problemas
 
-### 1) No aparece el indicador
+**1) No aparece el indicador**
+- Verifica que `AddOns/SE.cs` y `AddOns/OrderFlow-Suite.cs` estén instalados.
+- Recompila en NinjaScript Editor (`F5`).
 
-- Verifica que `AddOns/SE.cs` y `AddOns/WyckoffRender.cs` estén instalados.
-- Recompila en NinjaScript Editor.
-
-### 2) Error al compilar
-
+**2) Error al compilar**
 - Revisa **NinjaScript Output** para ver el archivo y línea del error.
 - Asegura que no haya duplicados de indicadores con el mismo nombre.
 
-### 3) No se ve volumen/order flow en tiempo real
-
-- Confirma Tick Replay activado.
+**3) No se ve volumen/order flow en tiempo real**
+- Confirma que Tick Replay esté activado en el chart activo.
 - Verifica conexión de datos y permisos de mercado.
 
-### 4) Import ZIP falla
-
+**4) Import ZIP falla**
 - Reinicia NinjaTrader e intenta de nuevo.
 - Haz backup de `Documents\NinjaTrader 8\bin\Custom` antes de reintentar.
 
@@ -150,35 +128,30 @@ En un gráfico:
 
 ```
 .
+├── *.cs (raíz)                  # Indicadores NT8 principales
 ├── AddOns/
-│   ├── SE.cs                          # Librería de cálculo/matemáticas (requerida)
-│   ├── WyckoffRender.cs               # Capa de renderizado SharpDX (requerida)
-│   ├── OrderFlowScalperPro.pine       # Script Pine TradingView
-│   └── SMC_ICT_Suite_Pro_v25_*.pine   # Suite SMC/ICT Pine TradingView
-├── *.cs (raíz)                        # Indicadores NT8 principales
+│   ├── SE.cs                    # Librería de cálculo/matemáticas (requerida)
+│   └── OrderFlow-Suite.cs       # Capa de renderizado SharpDX (requerida)
 ├── dist/
-│   ├── NT8_Import_Package/            # Paquete para Import NinjaScript Add-On
-│   │   ├── Indicators/
-│   │   ├── AddOns/
-│   │   └── TradingView/               # Scripts Pine incluidos
-│   ├── SourceOnly/                    # Copia manual de archivos .cs
-│   │   ├── Indicators/
-│   │   ├── AddOns/
-│   │   └── TradingView/               # Scripts Pine incluidos
-│   └── *.zip                          # ZIPs versionados (generados por CI)
+│   ├── NT8_Import_Package/      # Paquete para Import NinjaScript Add-On
+│   │   ├── Indicators/          # Sincronizado automáticamente por CI
+│   │   └── AddOns/
+│   └── *.zip                    # ZIPs versionados (generados por CI)
+├── RESUMEN.md                   # Resumen detallado de indicadores y versiones
+├── CLAUDE.md                    # Guía de desarrollo para Claude Code
 └── .github/workflows/
-    └── publish-nt8-package.yml        # CI: genera releases versionados automáticamente
+    └── publish-nt8-package.yml  # CI: genera releases en cada push a main
 ```
 
 ---
 
 ## Versionado
 
-Cada push a `main` genera automáticamente un nuevo release versionado (ej. `v1.0.3`).
+Cada push a `main` genera automáticamente un nuevo release.
 La versión se controla desde el archivo `VERSION` en la raíz del repositorio.
 
 ---
 
 ## Nota
 
-Este proyecto está enfocado a análisis de mercado de **futuros (NQ/ES)** y requiere correcta configuración de datos/tick replay en NinjaTrader para resultados consistentes.
+Este proyecto está enfocado a análisis de mercado de **futuros (NQ/ES)** y requiere correcta configuración de Tick Replay en NinjaTrader para resultados consistentes.

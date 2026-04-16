@@ -1,8 +1,6 @@
 FROM alpine:3.20
 WORKDIR /package
-COPY dist/OrderFlow-Suite-NT8.1-Import.zip /package/
-COPY dist/OrderFlow-Suite-NT8.1-SourceOnly.zip /package/
-COPY dist/WyckoffZen-NT8-Import.zip /package/
-LABEL org.opencontainers.image.title="OrderFlow Suite NT8.1"
+COPY dist/OrderFlow-Suite-NT8-v1.1.0-Import.zip /package/
+LABEL org.opencontainers.image.title="OrderFlow Suite NT8"
 LABEL org.opencontainers.image.description="NT8 import package (NQ/ES focused)"
-LABEL org.opencontainers.image.source="https://github.com/RHODIZSECURITY/CSharp-NT8-OrderFlowKit"
+LABEL org.opencontainers.image.source="https://github.com/RHODIZSECURITY/OrderFlow-Suite-NT8"
