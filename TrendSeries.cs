@@ -3,6 +3,7 @@ using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Windows.Media;
+using System.Xml.Serialization;
 using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
@@ -13,7 +14,7 @@ using NinjaTrader.NinjaScript.Indicators;
 // Source: SMC_ICT_Suite_Pro_v25_v10.11p_v30c_compile_fix_obstore_valuewhen.pine
 // Pine sections: CORE SERIES CALCULATIONS (lines 1133-1163) + SERIES PLOTS (lines 1165-1186)
 
-namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
+namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
 {
     public enum BbMaType { SMA, EMA, WMA, VWMA }
 
