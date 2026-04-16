@@ -17,7 +17,7 @@ using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
 #endregion
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
     public enum SrDetectionMethod { Pivots, Donchian, CSID }
     public enum SrDisplayType     { Levels, Zones }
@@ -51,6 +51,7 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
                 Description    = "S/R Zones — Pivots / Donchian / CSID detection with zone depth, overlap handling and visibility control. Ported from SMC/ICT Suite Pro.";
                 Calculate      = Calculate.OnBarClose;
                 IsOverlay      = true;
+                MaxLookBack = MaximumBarsLookBack.Infinite;
                 DrawOnPricePanel   = true;
                 ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;
                 IsSuspendedWhileInactive = true;

@@ -11,7 +11,7 @@ using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.Indicators;
 #endregion
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
     [Gui.CategoryOrder("Previous Day Levels", 1)]
     [Gui.CategoryOrder("NY Pre-Market Levels", 2)]
@@ -59,6 +59,7 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
                 Description = "TradingView-style market levels: PD, PM levels/VWAP, session VWAP, ORB and session gaps.";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
+                MaxLookBack = MaximumBarsLookBack.Infinite;
                 IsSuspendedWhileInactive = true;
                 DrawOnPricePanel = true;
 

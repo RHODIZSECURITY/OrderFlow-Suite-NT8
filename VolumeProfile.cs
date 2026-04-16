@@ -8,7 +8,7 @@ using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
 #endregion
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
     [Gui.CategoryOrder("Order Flow", 1)]
     [Gui.CategoryOrder("Market Volume", 2)]

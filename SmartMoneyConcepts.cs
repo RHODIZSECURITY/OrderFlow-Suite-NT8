@@ -9,7 +9,7 @@ using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 #endregion
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
     public enum FvgQuality { Any, Displaced, Strong }
     public enum ObRangeMode { FullCandle, BodyOnly }
@@ -157,6 +157,8 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
                 Draw.Text(this, $"SMC_OB_LBL_{CurrentBar}", "OB", 0, (hi + lo) * 0.5, bullImpulse ? ObBullColor : ObBearColor);
         }
 
+        private const int MaxZones = 300;
+
         private void MergeZone(List<Zone> zones, Zone incoming)
         {
             for (int i = 0; i < zones.Count; i++)
@@ -165,11 +167,19 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
                 bool overlaps = incoming.Top >= z.Bottom && incoming.Bottom <= z.Top;
                 if (!overlaps || incoming.Bull != z.Bull) continue;
 
-                z.Top = Math.Max(z.Top, incoming.Top);
-                z.Bottom = Math.Min(z.Bottom, incoming.Bottom);
+                z.Top      = Math.Max(z.Top, incoming.Top);
+                z.Bottom   = Math.Min(z.Bottom, incoming.Bottom);
                 z.StartBar = incoming.StartBar;
-                zones[i] = z;
+                zones[i]   = z;
                 return;
+            }
+            // Enforce max zone limit — remove oldest if needed
+            if (zones.Count >= MaxZones)
+            {
+                int oldestIdx = 0;
+                for (int i = 1; i < zones.Count; i++)
+                    if (zones[i].StartBar < zones[oldestIdx].StartBar) oldestIdx = i;
+                zones.RemoveAt(oldestIdx);
             }
             zones.Add(incoming);
         }

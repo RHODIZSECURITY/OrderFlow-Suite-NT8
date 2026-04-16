@@ -8,7 +8,7 @@ using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
 #endregion
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
     [Gui.CategoryOrder("Market Structure", 1)]
     [Gui.CategoryOrder("Liquidity Suite", 2)]
@@ -27,6 +27,7 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
                 Description = "TradingView-style MarketStructure + Liquidity + Premium/Discount Zones.";
                 Calculate = Calculate.OnBarClose;
                 IsOverlay = true;
+                MaxLookBack = MaximumBarsLookBack.Infinite;
 
                 SwingStrength = 5;
                 ShowBos = true;

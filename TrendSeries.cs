@@ -14,7 +14,7 @@ using NinjaTrader.NinjaScript.Indicators;
 // Source: SMC_ICT_Suite_Pro_v25_v10.11p_v30c_compile_fix_obstore_valuewhen.pine
 // Pine sections: CORE SERIES CALCULATIONS (lines 1133-1163) + SERIES PLOTS (lines 1165-1186)
 
-namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
+namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
     public enum BbMaType { SMA, EMA, WMA, VWMA }
 
@@ -53,6 +53,7 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
                 Description        = "EMA Series + SMA Series + Bollinger Bands Pro. Ported from SMC/ICT Suite Pro Pine Script.";
                 Calculate          = Calculate.OnBarClose;
                 IsOverlay          = true;
+                MaxLookBack = MaximumBarsLookBack.Infinite;
                 DisplayInDataBox   = true;
                 DrawOnPricePanel   = true;
                 ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;
