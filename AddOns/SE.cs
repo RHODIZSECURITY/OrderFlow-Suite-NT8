@@ -101,7 +101,8 @@ namespace NinjaTrader.NinjaScript.AddOns
 				return Math.Abs(Begin - End);
 			}
 			public static double Percent(double Total, double Cuantity, int roundDigits)
-			{ 
+			{
+				if (Total == 0) return 0.0;
 				return Math.Round((Cuantity*100)/Total, roundDigits);
 			}
 			public static double Percent(double Total, double Cuantity)
@@ -118,7 +119,7 @@ namespace NinjaTrader.NinjaScript.AddOns
 			}
 			public static double Atan2inDeg(double y, double x)
 			{
-				return Math.Round(Math.Atan2(y, x) * (180/3.14), 2);
+				return Math.Round(Math.Atan2(y, x) * (180.0 / Math.PI), 2);
 			}
 			public class BoundedValue<T>
 			{

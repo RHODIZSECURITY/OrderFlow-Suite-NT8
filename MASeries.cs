@@ -107,9 +107,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
         public bool Ema1Show { get => _ema1Show; set => _ema1Show = value; }
 
         [NinjaScriptProperty]
-        [Range(1, int.MaxValue)]
+        [Range(1, 5000)]
         [Display(Name = "EMA1 Period", Order = 2, GroupName = "EMA Series")]
-        public int Ema1Len { get => _ema1Len; set => _ema1Len = Math.Max(1, value); }
+        public int Ema1Len { get => _ema1Len; set => _ema1Len = Math.Max(1, Math.Min(5000, value)); }
 
         [XmlIgnore]
         [Display(Name = "EMA1 Color", Order = 3, GroupName = "EMA Series")]
@@ -127,9 +127,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
         public bool Ema2Show { get => _ema2Show; set => _ema2Show = value; }
 
         [NinjaScriptProperty]
-        [Range(1, int.MaxValue)]
+        [Range(1, 5000)]
         [Display(Name = "EMA2 Period", Order = 5, GroupName = "EMA Series")]
-        public int Ema2Len { get => _ema2Len; set => _ema2Len = Math.Max(1, value); }
+        public int Ema2Len { get => _ema2Len; set => _ema2Len = Math.Max(1, Math.Min(5000, value)); }
 
         [XmlIgnore]
         [Display(Name = "EMA2 Color", Order = 6, GroupName = "EMA Series")]
@@ -147,9 +147,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
         public bool Ema3Show { get => _ema3Show; set => _ema3Show = value; }
 
         [NinjaScriptProperty]
-        [Range(1, int.MaxValue)]
+        [Range(1, 5000)]
         [Display(Name = "EMA3 Period", Order = 8, GroupName = "EMA Series")]
-        public int Ema3Len { get => _ema3Len; set => _ema3Len = Math.Max(1, value); }
+        public int Ema3Len { get => _ema3Len; set => _ema3Len = Math.Max(1, Math.Min(5000, value)); }
 
         [XmlIgnore]
         [Display(Name = "EMA3 Color", Order = 9, GroupName = "EMA Series")]
@@ -167,9 +167,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
         public bool Ema4Show { get => _ema4Show; set => _ema4Show = value; }
 
         [NinjaScriptProperty]
-        [Range(1, int.MaxValue)]
+        [Range(1, 5000)]
         [Display(Name = "EMA4 Period", Order = 11, GroupName = "EMA Series")]
-        public int Ema4Len { get => _ema4Len; set => _ema4Len = Math.Max(1, value); }
+        public int Ema4Len { get => _ema4Len; set => _ema4Len = Math.Max(1, Math.Min(5000, value)); }
 
         [XmlIgnore]
         [Display(Name = "EMA4 Color", Order = 12, GroupName = "EMA Series")]
@@ -188,9 +188,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
         public bool Sma1Show { get => _sma1Show; set => _sma1Show = value; }
 
         [NinjaScriptProperty]
-        [Range(1, int.MaxValue)]
+        [Range(1, 5000)]
         [Display(Name = "SMA1 Period", Order = 2, GroupName = "SMA Series")]
-        public int Sma1Len { get => _sma1Len; set => _sma1Len = Math.Max(1, value); }
+        public int Sma1Len { get => _sma1Len; set => _sma1Len = Math.Max(1, Math.Min(5000, value)); }
 
         [XmlIgnore]
         [Display(Name = "SMA1 Color", Order = 3, GroupName = "SMA Series")]
@@ -208,9 +208,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
         public bool Sma2Show { get => _sma2Show; set => _sma2Show = value; }
 
         [NinjaScriptProperty]
-        [Range(1, int.MaxValue)]
+        [Range(1, 5000)]
         [Display(Name = "SMA2 Period", Order = 5, GroupName = "SMA Series")]
-        public int Sma2Len { get => _sma2Len; set => _sma2Len = Math.Max(1, value); }
+        public int Sma2Len { get => _sma2Len; set => _sma2Len = Math.Max(1, Math.Min(5000, value)); }
 
         [XmlIgnore]
         [Display(Name = "SMA2 Color", Order = 6, GroupName = "SMA Series")]
@@ -228,9 +228,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
         public bool Sma3Show { get => _sma3Show; set => _sma3Show = value; }
 
         [NinjaScriptProperty]
-        [Range(1, int.MaxValue)]
+        [Range(1, 5000)]
         [Display(Name = "SMA3 Period", Order = 8, GroupName = "SMA Series")]
-        public int Sma3Len { get => _sma3Len; set => _sma3Len = Math.Max(1, value); }
+        public int Sma3Len { get => _sma3Len; set => _sma3Len = Math.Max(1, Math.Min(5000, value)); }
 
         [XmlIgnore]
         [Display(Name = "SMA3 Color", Order = 9, GroupName = "SMA Series")]
@@ -248,9 +248,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
         public bool Sma4Show { get => _sma4Show; set => _sma4Show = value; }
 
         [NinjaScriptProperty]
-        [Range(1, int.MaxValue)]
+        [Range(1, 5000)]
         [Display(Name = "SMA4 Period", Order = 11, GroupName = "SMA Series")]
-        public int Sma4Len { get => _sma4Len; set => _sma4Len = Math.Max(1, value); }
+        public int Sma4Len { get => _sma4Len; set => _sma4Len = Math.Max(1, Math.Min(5000, value)); }
 
         [XmlIgnore]
         [Display(Name = "SMA4 Color", Order = 12, GroupName = "SMA Series")]
@@ -268,9 +268,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
         public bool Sma5Show { get => _sma5Show; set => _sma5Show = value; }
 
         [NinjaScriptProperty]
-        [Range(1, int.MaxValue)]
+        [Range(1, 5000)]
         [Display(Name = "SMA5 Period", Order = 14, GroupName = "SMA Series")]
-        public int Sma5Len { get => _sma5Len; set => _sma5Len = Math.Max(1, value); }
+        public int Sma5Len { get => _sma5Len; set => _sma5Len = Math.Max(1, Math.Min(5000, value)); }
 
         [XmlIgnore]
         [Display(Name = "SMA5 Color", Order = 15, GroupName = "SMA Series")]

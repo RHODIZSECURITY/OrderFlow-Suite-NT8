@@ -80,11 +80,15 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
             if (CurrentBar < _length - 1) return;
 
             _basis = CalcMA(CurrentBar);
+            if (double.IsNaN(_basis)) return;
 
             double sumSq = 0;
             for (int i = 0; i < _length; i++)
+            {
+                if (double.IsNaN(Close[i])) return;
                 sumSq += Math.Pow(Close[i] - _basis, 2);
-            double stdev = Math.Sqrt(sumSq / _length);
+            }
+            double stdev = Math.Sqrt(Math.Max(0, sumSq / _length));
 
             _upper = _basis + _mult * stdev;
             _lower = _basis - _mult * stdev;

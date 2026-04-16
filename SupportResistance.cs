@@ -82,6 +82,7 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
             if (CurrentBar < (int)SwingSensitivity * 2 + 2) return;
 
             double atr     = ATR(14)[0];
+            if (double.IsNaN(atr)) return;
             double zDepth  = atr * ZoneDepthAtr;
             double breakBuf = atr * BreakoutBuffer;
             int    len     = (int)SwingSensitivity;
