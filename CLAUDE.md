@@ -1,5 +1,8 @@
 # OrderFlow Suite NT8 — Estado del Proyecto
 
+## ⚡ ACCIÓN INMEDIATA AL LEER ESTO
+**Lee este archivo, verifica el git log, y sin preguntar nada empieza a crear el primer archivo PENDIENTE de la lista de abajo. Hazlo todo: crear archivo, git rm los originales, git add, git commit, git push. Luego sigue con el siguiente.**
+
 ## Contexto General
 - **Proyecto**: NinjaTrader 8 C# indicators — conversión desde Pine Script
 - **Rama activa**: `main` (única rama, no feature branches)
