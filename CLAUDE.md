@@ -19,16 +19,14 @@ Suite de indicadores de **order flow y análisis de volumen** para **NinjaTrader
 ├── *.cs                         # Indicadores NT8 (fuente principal)
 ├── AddOns/
 │   ├── SE.cs                    # Librería matemática/cálculo (requerida)
-│   ├── OrderFlow-Suite.cs       # Capa de renderizado SharpDX (requerida)
-│   ├── OrderFlowScalperPro.pine # Script Pine TradingView (privado, no distribuido)
-│   └── SMC_ICT_Suite_Pro_*.pine # Suite SMC/ICT Pine (privado, no distribuido)
+│   └── OrderFlow-Suite.cs       # Capa de renderizado SharpDX (requerida)
+│   # *.pine — scripts TradingView (privados, en .gitignore, no distribuidos)
 ├── dist/
 │   ├── NT8_Import_Package/      # Paquete para importar en NT8
-│   │   ├── Indicators/          # Copia de *.cs de la raíz (sync por CI)
-│   │   ├── AddOns/              # SE.cs + OrderFlow-Suite.cs
-│   │   └── TradingView/         # Scripts Pine (si se incluyen)
-│   ├── SourceOnly/              # Copia manual de archivos .cs
+│   │   ├── Indicators/          # Sincronizado por CI (copia de *.cs raíz)
+│   │   └── AddOns/              # SE.cs + OrderFlow-Suite.cs (copiado por CI)
 │   └── *.zip                    # ZIPs versionados (generados por CI)
+├── RESUMEN.md                   # Resumen detallado de indicadores y versiones
 ├── VERSION                      # Versión semántica (ej. 1.1.0); controla los releases
 ├── Dockerfile.package           # Imagen Docker para GHCR
 └── .github/workflows/
