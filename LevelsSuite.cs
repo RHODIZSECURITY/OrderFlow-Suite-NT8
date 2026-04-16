@@ -183,22 +183,51 @@ namespace NinjaTrader.NinjaScript.Indicators.WyckoffZen
             if (!_orbReady)
                 _orbReady = true;
 
-            if (_orbReady && _enableBreak)
+            if (_orbReady && t.Hour < _orbCutoffHour)
             {
-                bool breakUp = !_orbBrokenUp && Close[0] > _orbHigh;
-                bool breakDown = !_orbBrokenDown && Close[0] < _orbLow;
-
-                if (breakUp)
+                if (_enableBreak)
                 {
-                    _orbBrokenUp = true;
-                    if (_showLabels)
-                        Draw.Text(this, $"LS_ORB_BU_{CurrentBar}", "ORB↑", 0, High[0] + 2 * TickSize, _orbHighColor);
+                    bool breakUp = !_orbBrokenUp && Close[0] > _orbHigh;
+                    bool breakDown = !_orbBrokenDown && Close[0] < _orbLow;
+                    if (breakUp)
+                    {
+                        _orbBrokenUp = true;
+                        if (_showLabels)
+                            Draw.Text(this, $"LS_ORB_BU_{CurrentBar}", "① Break↑", 0, High[0] + 2 * TickSize, _orbHighColor);
+                    }
+                    if (breakDown)
+                    {
+                        _orbBrokenDown = true;
+                        if (_showLabels)
+                            Draw.Text(this, $"LS_ORB_BD_{CurrentBar}", "① Break↓", 0, Low[0] - 2 * TickSize, _orbLowColor);
+                    }
                 }
-                if (breakDown)
+
+                if (_enableTrap && CurrentBars[0] >= 2)
                 {
-                    _orbBrokenDown = true;
-                    if (_showLabels)
-                        Draw.Text(this, $"LS_ORB_BD_{CurrentBar}", "ORB↓", 0, Low[0] - 2 * TickSize, _orbLowColor);
+                    bool brokeAbove = High[1] > _orbHigh && Close[1] > _orbHigh;
+                    bool brokeBelow = Low[1]  < _orbLow  && Close[1] < _orbLow;
+                    if (brokeAbove && Close[0] < _orbHigh && !_orbBrokenDown)
+                    {
+                        _orbBrokenDown = true;
+                        if (_showLabels)
+                            Draw.Text(this, $"LS_ORB_TS_{CurrentBar}", "② Trap↓", 0, High[0] + 2 * TickSize, _orbLowColor);
+                    }
+                    if (brokeBelow && Close[0] > _orbLow && !_orbBrokenUp)
+                    {
+                        _orbBrokenUp = true;
+                        if (_showLabels)
+                            Draw.Text(this, $"LS_ORB_TL_{CurrentBar}", "② Trap↑", 0, Low[0] - 2 * TickSize, _orbHighColor);
+                    }
+                }
+
+                if (_enableReversal)
+                {
+                    double mid = (High[0] + Low[0]) * 0.5;
+                    if (High[0] > _orbHigh && Close[0] < mid && Close[0] < _orbHigh)
+                        Draw.Diamond(this, $"LS_ORB_RS_{CurrentBar}", false, 0, High[0] + TickSize * 4, _orbLowColor);
+                    if (Low[0] < _orbLow && Close[0] > mid && Close[0] > _orbLow)
+                        Draw.Diamond(this, $"LS_ORB_RL_{CurrentBar}", false, 0, Low[0] - TickSize * 4, _orbHighColor);
                 }
             }
         }
