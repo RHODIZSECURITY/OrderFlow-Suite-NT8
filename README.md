@@ -1,25 +1,22 @@
 # OrderFlow Suite NT8.1 (Español)
 
-> Última actualización: 2026-04-14 — v1.0.3
+> Última actualización: 2026-04-16 — v1.1.0
 
 Suite de análisis de volumen y order flow para **NinjaTrader 8.1**, enfocada en **Futuros**, especialmente en **Nasdaq (NQ)** y **S&P 500 E-mini (ES)**.
 Incluye también scripts **Pine para TradingView**.
 
 ## ¿Qué incluye?
 
-### Indicadores NinjaTrader 8.1
+### Indicadores NinjaTrader 8.1 (suite consolidada)
 
-- `Bookmap.cs`
-- `OrderFlow.cs`
-- `VolumeAnalysisProfile.cs`
-- `VolumeFilter.cs`
-- `MarketVolume.cs`
-- `BigTrades.cs`
-- `PreviousDayLevels.cs`
-- `NYPreMarketLevels.cs`
+- `HeatMapFlow.cs`
+- `LevelsSuite.cs`
+- `OrderFlowSignals.cs`
+- `SmartMoneyConcepts.cs`
+- `StructureSuite.cs`
+- `VolumeProfile.cs`
 - `SupportResistance.cs`
-- `OrderBlocks.cs`
-- `FairValueGaps.cs`
+- `TrendSeries.cs`
 
 AddOns requeridos:
 
@@ -59,7 +56,7 @@ También puede utilizarse en otros futuros compatibles con NinjaTrader, pero la 
 
 1. Copia los archivos de `AddOns/` a:
    `Documents\NinjaTrader 8\bin\Custom\AddOns\`
-2. Copia los indicadores (`Bookmap.cs`, `OrderFlow.cs`, etc.) a:
+2. Copia los indicadores (`HeatMapFlow.cs`, `LevelsSuite.cs`, etc.) a:
    `Documents\NinjaTrader 8\bin\Custom\Indicators\`
 3. Abre NinjaScript Editor y compila (`F5`).
 
@@ -97,17 +94,14 @@ En un gráfico:
 
 1. Clic derecho → **Indicators**.
 2. Agrega alguno de estos:
-   - **Book Map**
-   - **Order Flow**
-   - **Volume Analysis Profile**
-   - **Volume Filter**
-   - **Market Volume**
-   - **Big Trades**
-   - **Previous Day Levels**
-   - **NY PreMarket Levels**
-   - **Support Resistance**
-   - **Order Blocks**
-   - **Fair Value Gaps**
+   - **HeatMapFlow**
+   - **LevelsSuite**
+   - **OrderFlowSignals**
+   - **SmartMoneyConcepts**
+   - **StructureSuite**
+   - **VolumeProfile**
+   - **SupportResistance**
+   - **TrendSeries**
 
 ### Preset recomendado NQ/ES (Big Trades)
 

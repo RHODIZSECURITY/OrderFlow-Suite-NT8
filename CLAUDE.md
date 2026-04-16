@@ -12,31 +12,44 @@
 ## Objetivo: Consolidar 20 indicadores → 8 archivos modulares
 
 ### COMPLETADOS ✅
-| Archivo | Consolida | Commit |
-|---------|-----------|--------|
-| `TrendSeries.cs` | MASeries + BollingerBandsPro | `915a02a` |
-| `SupportResistance.cs` | standalone, sin cambios | — |
+| # | Archivo final | Estado |
+|---|---------------|--------|
+| 1 | `TrendSeries.cs` | consolidado |
+| 2 | `SupportResistance.cs` | consolidado |
+| 3 | `LevelsSuite.cs` | consolidado |
+| 4 | `SmartMoneyConcepts.cs` | consolidado |
+| 5 | `StructureSuite.cs` | consolidado |
+| 6 | `OrderFlowSignals.cs` | consolidado |
+| 7 | `HeatMapFlow.cs` | consolidado (rename de Bookmap) |
+| 8 | `VolumeProfile.cs` | consolidado |
 
-### PENDIENTES (en orden)
-| # | Archivo nuevo | Consolida (borrar estos) |
-|---|---------------|--------------------------|
-| 3 | `LevelsSuite.cs` | PreviousDayLevels.cs, ORBPro.cs, NYPreMarketLevels.cs, SessionVWAP.cs, SessionGap.cs |
-| 4 | `SmartMoneyConcepts.cs` | FairValueGaps.cs, OrderBlocks.cs |
-| 5 | `StructureSuite.cs` | MarketStructure.cs, LiquiditySuite.cs, PremiumDiscountZones.cs |
-| 6 | `OrderFlowSignals.cs` | BigTrades.cs, TripleA.cs |
-| 7 | `HeatMapFlow.cs` | Bookmap.cs (`git mv`, rename class + Name="HeatMapFlow") |
-| 8 | `VolumeProfile.cs` | OrderFlow.cs, MarketVolume.cs, VolumeAnalysisProfile.cs, VolumeFilter.cs |
+### Bitácora de iteraciones (paridad TradingView)
+- 2026-04-16 — `LevelsSuite.cs`: mejora de lógica TV-style (pre-market VWAP en vivo, evaluación de gap sólo en apertura NY, ORB con break labels y reset estable por sesión).
+- 2026-04-16 — `SmartMoneyConcepts.cs`: mejora de FVG/OB con filtros de calidad (Displaced/Strong), fusión opcional de zonas solapadas y parámetros visuales para acercar comportamiento a TradingView.
+- 2026-04-16 — `SmartMoneyConcepts.cs`: exposición de estado para estrategias (`ActiveFvgZoneCount`, `ActiveObZoneCount`, `LastFvgTop/Bottom`, `LastObTop/Bottom`).
+- 2026-04-16 — `StructureSuite.cs`: mejora de Market Structure TV-style (BOS + CHoCH), sweeps de liquidez con etiquetas y zonas premium/discount con opacidad configurable.
+- 2026-04-16 — `StructureSuite.cs`: exposición de estado para estrategias (`TrendState`, `LastSwingHigh`, `LastSwingLow`, `IsBullishStructure`).
+- 2026-04-16 — `OrderFlowSignals.cs`: mejora TV-style con filtros de absorción e imbalance, manteniendo señales TripleA en primer tick y bubbles de big prints.
+- 2026-04-16 — `OrderFlowSignals.cs`: exposición de estado para estrategias (`LastAbsorption`, `LastAbsorptionPrice`, `LastBullImbalance`, `LastBearImbalance`).
+- 2026-04-16 — `VolumeProfile.cs`: mejora TV-style con delta acumulado por sesión, filtro de volumen por z-score y salida separada para volumen relativo/filtrado.
+- 2026-04-16 — `VolumeProfile.cs`: exposición de series (`Delta`, `RelativeVolume`, `FilteredVolume`, `CumulativeDelta`) para consumo directo en estrategias.
+- 2026-04-16 — `HeatMapFlow.cs`: ajuste de identidad pública (`Name`/`Description`) para alinear rename Bookmap → HeatMapFlow sin romper compatibilidad interna.
+- 2026-04-16 — `HeatMapFlow.cs`: normalización de labels/grupos de propiedades (`Book Map` → `Heat Map`) para UX consistente con el rename.
+- 2026-04-16 — `HeatMapFlow.cs`: corrección de textos/typos visibles en panel de propiedades (`Aggressive`, `Cumulative`, `Heat map margin`) sin alterar contratos internos.
+- 2026-04-16 — `README.md`: actualización de documentación pública a la suite consolidada (`HeatMapFlow`, `LevelsSuite`, `OrderFlowSignals`, `SmartMoneyConcepts`, `StructureSuite`, `VolumeProfile`, etc.).
 
-## Proceso por cada indicador
+### PENDIENTES (nueva fase)
+1. **Validación de paridad TradingView** indicador por indicador (inputs, plots, señales y edge cases).
+2. **Pruebas en NT8** en histórico + real-time (sessions NY, PM, gaps, imbalances).
+3. **Ajustes finos** de defaults visuales y rendimiento.
+
+## Proceso por cada ajuste a partir de ahora
 ```bash
-# 1. Crear el nuevo archivo consolidado (leer los originales primero)
-# 2. Borrar los originales
-git rm PreviousDayLevels.cs ORBPro.cs NYPreMarketLevels.cs SessionVWAP.cs SessionGap.cs
-# 3. Añadir nuevo
-git add LevelsSuite.cs
-# 4. Commit
-git commit -m "v1.1.0: consolidar X indicadores → NuevoArchivo"
-# 5. Push (dispara CI)
+# 1. Editar indicador + actualizar este CLAUDE.md en el mismo commit
+# 2. Commit atómico con scope claro
+git add <archivo_indicador>.cs CLAUDE.md
+git commit -m "v1.1.0: ajuste <indicador> + update CLAUDE.md"
+# 3. Push (dispara CI)
 git push -u origin main
 ```
 

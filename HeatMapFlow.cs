@@ -53,7 +53,7 @@ public static class _BookMapEnums
 
 namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 {
-	public class Bookmap : Indicator
+	public class HeatMapFlow : Indicator
 	{
 		#region MAIN_CLASS
 		
@@ -209,7 +209,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			}
 			
 			
-			public void setBookmapFontStyle(SimpleFont font)
+			public void setHeatMapFlowFontStyle(SimpleFont font)
 			{
 				setFontStyle(font, out this.bookmapTextFormat);
 			}
@@ -291,7 +291,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			{
 				this.marginRight = marginRight;
 			}
-			public void setBookmapMinSizeFont(float minFontWidth, float minFontHeight)
+			public void setHeatMapFlowMinSizeFont(float minFontWidth, float minFontHeight)
 			{
 				this.bookmapMinFontWidth = minFontWidth;
 				this.bookmapMinFontHeight = minFontHeight;
@@ -804,13 +804,13 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		private void setBookMapStyle()
 		{
-			_BookmapTextFont = new SimpleFont();
-			_BookmapTextFont.Family = new FontFamily("Arial");
-			_BookmapTextFont.Size = 10f;
-			_BookmapTextFont.Bold = false;
-			_BookmapTextFont.Italic= false;
-			_BookmapMinFontWidth = 15f;
-			_BookmapMinFontHeight = 15f;
+			_HeatMapFlowTextFont = new SimpleFont();
+			_HeatMapFlowTextFont.Family = new FontFamily("Arial");
+			_HeatMapFlowTextFont.Size = 10f;
+			_HeatMapFlowTextFont.Bold = false;
+			_HeatMapFlowTextFont.Italic= false;
+			_HeatMapFlowMinFontWidth = 15f;
+			_HeatMapFlowMinFontHeight = 15f;
 			
 			_BidPendingOrdersColor = Brushes.LightBlue;//Brushes.Brown;
 			_AskPendingOrdersColor = Brushes.LightBlue;//Brushes.DarkSeaGreen;
@@ -905,8 +905,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		{
 			if (State == State.SetDefaults)
 			{
-				Description									= @"";
-				Name										= "Book Map";
+					Description									= @"HeatMapFlow (legacy Bookmap) for NT8 order-book and market-order heat visualization.";
+					Name										= "HeatMapFlow";
 				Calculate									= Calculate.OnEachTick;
 				IsOverlay									= true;
 				DisplayInDataBox							= true;
@@ -934,8 +934,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			{
 				/// !- el orden no importa
 				/// 
-				wyckoffBM.setBookmapFontStyle(_BookmapTextFont);
-				wyckoffBM.setBookmapMinSizeFont(_BookmapMinFontWidth, _BookmapMinFontHeight);
+				wyckoffBM.setHeatMapFlowFontStyle(_HeatMapFlowTextFont);
+				wyckoffBM.setHeatMapFlowMinSizeFont(_HeatMapFlowMinFontWidth, _HeatMapFlowMinFontHeight);
 				
 				wyckoffBM.setOrderBookFontStyle(_OrderBookTextFont);
 				wyckoffBM.setOrderBookMinSizeFont(_OrderBookTextMinFontWidth, _OrderBookTextMinFontHeight);
@@ -1007,7 +1007,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 					string fullSavePath = System.IO.Path.GetFullPath(_SessionSaveFilePath);
 					if (!fullSavePath.StartsWith(safeUserDir, StringComparison.OrdinalIgnoreCase))
 					{
-						Print("[Bookmap] Session save path rejected (outside UserDataDir): " + _SessionSaveFilePath);
+						Print("[HeatMapFlow] Session save path rejected (outside UserDataDir): " + _SessionSaveFilePath);
 					}
 					else
 					{
@@ -1020,12 +1020,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 					string fullLoadPath = System.IO.Path.GetFullPath(_SessionLoadFilePath);
 					if (!fullLoadPath.StartsWith(safeUserDir, StringComparison.OrdinalIgnoreCase))
 					{
-						Print("[Bookmap] Session load path rejected (outside UserDataDir): " + _SessionLoadFilePath);
+						Print("[HeatMapFlow] Session load path rejected (outside UserDataDir): " + _SessionLoadFilePath);
 					}
 					else
 					{
 						VolumeAnalysis.BookMap.SessionError err = bookMap.LoadSessionFile(_SessionLoadFilePath);
-						Print(string.Format("[Bookmap] Session loaded — status: {0}", err));
+						Print(string.Format("[HeatMapFlow] Session loaded — status: {0}", err));
 					}
 				}
 				wyckoffBM.setBookMap(bookMap);
@@ -1078,7 +1078,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			}
 			catch (Exception ex)
 			{
-				Print("Bookmap render error: " + ex.Message);
+				Print("HeatMapFlow render error: " + ex.Message);
 			}
 			wyckoffBM.renderBackground();
 		}
@@ -1106,86 +1106,86 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		
 		#region Properties
 		
-		/// !- Book Map DB
+		/// !- Heat Map DB
 		
 		[NinjaScriptProperty]
-		[Display(Name="Session save file path", Order=0, GroupName="Book Map Database")]
+		[Display(Name="Session save file path", Order=0, GroupName="Heat Map Database")]
 		public string _SessionSaveFilePath { get; set; } 
 		
 		[NinjaScriptProperty]
-		[Display(Name="Session load file path", Order=1, GroupName="Book Map Database")]
+		[Display(Name="Session load file path", Order=1, GroupName="Heat Map Database")]
 		[PropertyEditor ("NinjaTrader.Gui.Tools.FilePathPicker" , Filter= "Any Files (*.bm)|*.bm" )]
 		public string _SessionLoadFilePath { get; set; } 
 		
 		[NinjaScriptProperty]
-		[Display(Name="Realtime save session", Order=2, GroupName="Book Map Database")]
+		[Display(Name="Realtime save session", Order=2, GroupName="Heat Map Database")]
 		public bool _SaveSession
 		{ get; set; }
 		
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Load pending orders from(%)", Order=4, GroupName="Book Map Database")]
+		[Display(Name="Load pending orders from(%)", Order=4, GroupName="Heat Map Database")]
 		public float _FilterSessionPendingOrdersPer
 		{ get; set; }
 		
-		/// !- Book Map Calculation
+		/// !- Heat Map Calculation
 		
 		[NinjaScriptProperty]
-		[Display(Name = "Ladder range", Order = 0, GroupName = "Book Map Calculation")]
+		[Display(Name = "Ladder range", Order = 0, GroupName = "Heat Map Calculation")]
 		public _BookMapEnums.LadderRange _LadderRange
 		{ get; set; }
 		
 		[NinjaScriptProperty]
-		[Display(Name = "Market orders calculation", Order = 1, GroupName = "Book Map Calculation")]
+		[Display(Name = "Market orders calculation", Order = 1, GroupName = "Heat Map Calculation")]
 		public _BookMapEnums.MarketOrdersCalculation _MarketOrdersCalculation
 		{ get; set; }
 		
 		[NinjaScriptProperty]
-		[Display(Name = "Market bars calculation", Order = 1, GroupName = "Book Map Calculation")]
+		[Display(Name = "Market bars calculation", Order = 1, GroupName = "Heat Map Calculation")]
 		public _BookMapEnums.MarketBarsCalculation _MarketBarsCalculation
 		{ get; set; }
 		
-		/// !- Book Map Filters
+		/// !- Heat Map Filters
 		
 		[NinjaScriptProperty]
 		[Range(0, long.MaxValue)]
-		[Display(Name = "Aggresive market orders(0 to ignore)", Order = 0, GroupName = "Book Map Filters")]
+		[Display(Name = "Aggressive market orders (0 to ignore)", Order = 0, GroupName = "Heat Map Filters")]
 		public long _AggresiveMarketOrdersFilter
 		{ get; set; }
 		
 		[NinjaScriptProperty]
 		[Range(0, long.MaxValue)]
-		[Display(Name="Big pending orders(0 to ignore)", Order=1, GroupName="Book Map Filters")]
+		[Display(Name="Big pending orders(0 to ignore)", Order=1, GroupName="Heat Map Filters")]
 		public long _FilterBigPendingOrders
 		{ get; set; }
 		
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Show pending orders from(%)", Order=2, GroupName="Book Map Filters")]
+		[Display(Name="Show pending orders from(%)", Order=2, GroupName="Heat Map Filters")]
 		public float _FilterPendingOrdersPer
 		{ get; set; }
 		
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Show text pending orders from(%)", Order=3, GroupName="Book Map Filters")]
+		[Display(Name="Show text pending orders from(%)", Order=3, GroupName="Heat Map Filters")]
 		public float _FilterTextPendingOrdersPer
 		{ get; set; }
 		
 		[NinjaScriptProperty]
-		[Display(Name="Show market orders text", Order=4, GroupName="Book Map Style")]
+		[Display(Name="Show market orders text", Order=4, GroupName="Heat Map Style")]
 		public bool _ShowMarketOrdersText
 		{ get; set; }
 		
-		/// !- Book Map Style
+		/// !- Heat Map Style
 		
 		[NinjaScriptProperty]
 		[Range(120, 600)]
-		[Display(Name = "Book margin right", Order = 0, GroupName = "Book Map Style")]
+		[Display(Name = "Heat map margin right", Order = 0, GroupName = "Heat Map Style")]
 		public int _BookMarginRight
 		{ get; set; }
 		
 		[XmlIgnore]
-		[Display(Name="Background", Order=1, GroupName="Book Map Style")]
+		[Display(Name="Background", Order=1, GroupName="Heat Map Style")]
 		public Brush _BackgroundColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1196,12 +1196,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Background opacity(%)", Order=2, GroupName="Book Map Style")]
+		[Display(Name="Background opacity(%)", Order=2, GroupName="Heat Map Style")]
 		public float _BackgroundColorOpacity
 		{ get; set; }
 		
 		[XmlIgnore]
-		[Display(Name="Vertical lines", Order=3, GroupName="Book Map Style")]
+		[Display(Name="Vertical lines", Order=3, GroupName="Heat Map Style")]
 		public Brush _VerticalLinesColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1212,7 +1212,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		
 		[XmlIgnore]
-		[Display(Name="Bid pending orders", Order=4, GroupName="Book Map Style")]
+		[Display(Name="Bid pending orders", Order=4, GroupName="Heat Map Style")]
 		public Brush _BidPendingOrdersColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1222,7 +1222,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			set { _BidPendingOrdersColor = Serialize.StringToBrush(value); }
 		}
 		[XmlIgnore]
-		[Display(Name="Bid market orders", Order=5, GroupName="Book Map Style")]
+		[Display(Name="Bid market orders", Order=5, GroupName="Heat Map Style")]
 		public Brush _BidMarketOrdersColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1233,7 +1233,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		
 		[XmlIgnore]
-		[Display(Name="Ask pending orders", Order=6, GroupName="Book Map Style")]
+		[Display(Name="Ask pending orders", Order=6, GroupName="Heat Map Style")]
 		public Brush _AskPendingOrdersColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1243,7 +1243,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 			set { _AskPendingOrdersColor = Serialize.StringToBrush(value); }
 		}
 		[XmlIgnore]
-		[Display(Name="Ask market orders", Order=7, GroupName="Book Map Style")]
+		[Display(Name="Ask market orders", Order=7, GroupName="Heat Map Style")]
 		public Brush _AskMarketOrdersColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1254,7 +1254,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		
 		[XmlIgnore]
-		[Display(Name="Total market orders", Order=8, GroupName="Book Map Style")]
+		[Display(Name="Total market orders", Order=8, GroupName="Heat Map Style")]
 		public Brush _TotalMarketOrdersColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1265,7 +1265,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		
 		[XmlIgnore]
-		[Display(Name="Big pending orders", Order=9, GroupName="Book Map Style")]
+		[Display(Name="Big pending orders", Order=9, GroupName="Heat Map Style")]
 		public Brush _BigPendingOrdersColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1276,27 +1276,27 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Big pending opacity(%)", Order=10, GroupName="Book Map Style")]
+		[Display(Name="Big pending opacity(%)", Order=10, GroupName="Heat Map Style")]
 		public float _BigPendingOrdersOpacity
 		{ get; set; }
 		
 		[NinjaScriptProperty]
-		[Display(Name="Font", Order=11, GroupName="Book Map Style")]
-		public SimpleFont _BookmapTextFont
+		[Display(Name="Font", Order=11, GroupName="Heat Map Style")]
+		public SimpleFont _HeatMapFlowTextFont
 		{ get; set; }
 		[NinjaScriptProperty]
 		[Range(1.0f, float.MaxValue)]
-		[Display(Name="Min font width", Order=12, GroupName="Book Map Style")]
-		public float _BookmapMinFontWidth
+		[Display(Name="Min font width", Order=12, GroupName="Heat Map Style")]
+		public float _HeatMapFlowMinFontWidth
 		{ get; set; }
 		[NinjaScriptProperty]
 		[Range(1.0f, float.MaxValue)]
-		[Display(Name="Min font height", Order=13, GroupName="Book Map Style")]
-		public float _BookmapMinFontHeight
+		[Display(Name="Min font height", Order=13, GroupName="Heat Map Style")]
+		public float _HeatMapFlowMinFontHeight
 		{ get; set; }
 		
 		[XmlIgnore]
-		[Display(Name="Bid pending orders text", Order=14, GroupName="Book Map Style")]
+		[Display(Name="Bid pending orders text", Order=14, GroupName="Heat Map Style")]
 		public Brush _BidPendingOrdersTextColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1307,12 +1307,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Bid pending orders opacity(%)", Order=15, GroupName="Book Map Style")]
+		[Display(Name="Bid pending orders opacity(%)", Order=15, GroupName="Heat Map Style")]
 		public float _BidPendingOrdersTextOpacity
 		{ get; set; }
 		
 		[XmlIgnore]
-		[Display(Name="Ask pending orders text", Order=16, GroupName="Book Map Style")]
+		[Display(Name="Ask pending orders text", Order=16, GroupName="Heat Map Style")]
 		public Brush _AskPendingOrdersTextColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1323,12 +1323,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Ask pending orders opacity(%)", Order=17, GroupName="Book Map Style")]
+		[Display(Name="Ask pending orders opacity(%)", Order=17, GroupName="Heat Map Style")]
 		public float _AskPendingOrdersTextOpacity
 		{ get; set; }
 		
 		[XmlIgnore]
-		[Display(Name="Bid market orders text", Order=18, GroupName="Book Map Style")]
+		[Display(Name="Bid market orders text", Order=18, GroupName="Heat Map Style")]
 		public Brush _BidMarketOrdersTextColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1339,12 +1339,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Bid market orders opacity(%)", Order=19, GroupName="Book Map Style")]
+		[Display(Name="Bid market orders opacity(%)", Order=19, GroupName="Heat Map Style")]
 		public float _BidMarketOrdersTextOpacity
 		{ get; set; }
 		
 		[XmlIgnore]
-		[Display(Name="Ask market orders text", Order=20, GroupName="Book Map Style")]
+		[Display(Name="Ask market orders text", Order=20, GroupName="Heat Map Style")]
 		public Brush _AskMarketOrdersTextColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1355,12 +1355,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Ask market orders opacity(%)", Order=21, GroupName="Book Map Style")]
+		[Display(Name="Ask market orders opacity(%)", Order=21, GroupName="Heat Map Style")]
 		public float _AskMarketOrdersTextOpacity
 		{ get; set; }
 		
 		[XmlIgnore]
-		[Display(Name="Total market orders text", Order=22, GroupName="Book Map Style")]
+		[Display(Name="Total market orders text", Order=22, GroupName="Heat Map Style")]
 		public Brush _TotalMarketOrdersTextColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1371,26 +1371,26 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Total market orders opacity(%)", Order=23, GroupName="Book Map Style")]
+		[Display(Name="Total market orders opacity(%)", Order=23, GroupName="Heat Map Style")]
 		public float _TotalMarketOrdersTextOpacity
 		{ get; set; }
 		
-		/// !- Book Cummulative Style
+		/// !- Book Cumulative Style
 		
 		[NinjaScriptProperty]
-		[Display(Name = "Market Cummulative Calculation", Order = 0, GroupName = "Cummulative Book Calculation")]
+		[Display(Name = "Market Cumulative Calculation", Order = 0, GroupName = "Cumulative Book Calculation")]
 		public _BookMapEnums.MarketCummulativeCalculation _MarketCummulativeCalculation
 		{ get; set; }
 		
 //		[NinjaScriptProperty]
-//		[Display(Name="Show Cummulative Book", Order=1, GroupName="Cummulative Book Calculation")]
+//		[Display(Name="Show Cumulative Book", Order=1, GroupName="Cumulative Book Calculation")]
 //		public bool _ShowBookCummulative
 //		{ get; set; }
 		
-		/// !- Book Cummulative Style
+		/// !- Book Cumulative Style
 		
 		[XmlIgnore]
-		[Display(Name="Bid market orders", Order=1, GroupName="Cummulative Book Style")]
+		[Display(Name="Bid market orders", Order=1, GroupName="Cumulative Book Style")]
 		public Brush _BidMarketCummulativeColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1401,7 +1401,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		
 		[XmlIgnore]
-		[Display(Name="Ask market orders", Order=2, GroupName="Cummulative Book Style")]
+		[Display(Name="Ask market orders", Order=2, GroupName="Cumulative Book Style")]
 		public Brush _AskMarketCummulativeColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1412,7 +1412,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		
 		[XmlIgnore]
-		[Display(Name="Total market orders", Order=3, GroupName="Cummulative Book Style")]
+		[Display(Name="Total market orders", Order=3, GroupName="Cumulative Book Style")]
 		public Brush _TotalMarketCummulativeColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1423,22 +1423,22 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		
 		[NinjaScriptProperty]
-		[Display(Name="Font", Order=4, GroupName="Cummulative Book Style")]
+		[Display(Name="Font", Order=4, GroupName="Cumulative Book Style")]
 		public SimpleFont _CummulativeBookTextFont
 		{ get; set; }
 		[NinjaScriptProperty]
 		[Range(1.0f, float.MaxValue)]
-		[Display(Name="Min font width", Order=5, GroupName="Cummulative Book Style")]
+		[Display(Name="Min font width", Order=5, GroupName="Cumulative Book Style")]
 		public float _CummulativeBookMinFontWidth
 		{ get; set; }
 		[NinjaScriptProperty]
 		[Range(1.0f, float.MaxValue)]
-		[Display(Name="Min font height", Order=6, GroupName="Cummulative Book Style")]
+		[Display(Name="Min font height", Order=6, GroupName="Cumulative Book Style")]
 		public float _CummulativeBookMinFontHeight
 		{ get; set; }
 		
 		[XmlIgnore]
-		[Display(Name="Bid text", Order=7, GroupName="Cummulative Book Style")]
+		[Display(Name="Bid text", Order=7, GroupName="Cumulative Book Style")]
 		public Brush _BidMarketCummulativeTextColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1449,12 +1449,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Bid text opacity(%)", Order=8, GroupName="Cummulative Book Style")]
+		[Display(Name="Bid text opacity(%)", Order=8, GroupName="Cumulative Book Style")]
 		public float _BidMarketCummulativeTextOpacity
 		{ get; set; }
 		
 		[XmlIgnore]
-		[Display(Name="Ask text", Order=9, GroupName="Cummulative Book Style")]
+		[Display(Name="Ask text", Order=9, GroupName="Cumulative Book Style")]
 		public Brush _AskMarketCummulativeTextColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1465,12 +1465,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Ask text opacity(%)", Order=10, GroupName="Cummulative Book Style")]
+		[Display(Name="Ask text opacity(%)", Order=10, GroupName="Cumulative Book Style")]
 		public float _AskMarketCummulativeTextOpacity
 		{ get; set; }
 		
 		[XmlIgnore]
-		[Display(Name="Total text", Order=11, GroupName="Cummulative Book Style")]
+		[Display(Name="Total text", Order=11, GroupName="Cumulative Book Style")]
 		public Brush _TotalMarketCummulativeTextColor
 		{ get; set; }
 		[Browsable(false)]
@@ -1481,7 +1481,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ_v1_0_0
 		}
 		[NinjaScriptProperty]
 		[Range(0.0f, 100f)]
-		[Display(Name="Total text opacity(%)", Order=12, GroupName="Cummulative Book Style")]
+		[Display(Name="Total text opacity(%)", Order=12, GroupName="Cumulative Book Style")]
 		public float _TotalMarketCummulativeTextOpacity
 		{ get; set; }
 		
@@ -1577,19 +1577,19 @@ namespace NinjaTrader.NinjaScript.Indicators
 {
 	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
 	{
-		private OrderFlow_Suite_RHODIZ_v1_0_0.Bookmap[] cacheBookmap;
-		public OrderFlow_Suite_RHODIZ_v1_0_0.Bookmap Bookmap(string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
+		private OrderFlow_Suite_RHODIZ_v1_0_0.HeatMapFlow[] cacheHeatMapFlow;
+		public OrderFlow_Suite_RHODIZ_v1_0_0.HeatMapFlow HeatMapFlow(string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
 		{
-			return Bookmap(Input, _sessionSaveFilePath, _sessionLoadFilePath, _saveSession, _filterSessionPendingOrdersPer, _ladderRange, _marketOrdersCalculation, _marketBarsCalculation, _aggresiveMarketOrdersFilter, _filterBigPendingOrders, _filterPendingOrdersPer, _filterTextPendingOrdersPer, _showMarketOrdersText, _bookMarginRight, _backgroundColorOpacity, _bigPendingOrdersOpacity, _bookmapTextFont, _bookmapMinFontWidth, _bookmapMinFontHeight, _bidPendingOrdersTextOpacity, _askPendingOrdersTextOpacity, _bidMarketOrdersTextOpacity, _askMarketOrdersTextOpacity, _totalMarketOrdersTextOpacity, _marketCummulativeCalculation, _cummulativeBookTextFont, _cummulativeBookMinFontWidth, _cummulativeBookMinFontHeight, _bidMarketCummulativeTextOpacity, _askMarketCummulativeTextOpacity, _totalMarketCummulativeTextOpacity, _bidOrderBookOpacity, _askOrderBookOpacity, _orderBookTextFont, _orderBookTextMinFontWidth, _orderBookTextMinFontHeight, _bidOrderBookTextOpacity, _askOrderBookTextOpacity);
+			return HeatMapFlow(Input, _sessionSaveFilePath, _sessionLoadFilePath, _saveSession, _filterSessionPendingOrdersPer, _ladderRange, _marketOrdersCalculation, _marketBarsCalculation, _aggresiveMarketOrdersFilter, _filterBigPendingOrders, _filterPendingOrdersPer, _filterTextPendingOrdersPer, _showMarketOrdersText, _bookMarginRight, _backgroundColorOpacity, _bigPendingOrdersOpacity, _bookmapTextFont, _bookmapMinFontWidth, _bookmapMinFontHeight, _bidPendingOrdersTextOpacity, _askPendingOrdersTextOpacity, _bidMarketOrdersTextOpacity, _askMarketOrdersTextOpacity, _totalMarketOrdersTextOpacity, _marketCummulativeCalculation, _cummulativeBookTextFont, _cummulativeBookMinFontWidth, _cummulativeBookMinFontHeight, _bidMarketCummulativeTextOpacity, _askMarketCummulativeTextOpacity, _totalMarketCummulativeTextOpacity, _bidOrderBookOpacity, _askOrderBookOpacity, _orderBookTextFont, _orderBookTextMinFontWidth, _orderBookTextMinFontHeight, _bidOrderBookTextOpacity, _askOrderBookTextOpacity);
 		}
 
-		public OrderFlow_Suite_RHODIZ_v1_0_0.Bookmap Bookmap(ISeries<double> input, string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
+		public OrderFlow_Suite_RHODIZ_v1_0_0.HeatMapFlow HeatMapFlow(ISeries<double> input, string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
 		{
-			if (cacheBookmap != null)
-				for (int idx = 0; idx < cacheBookmap.Length; idx++)
-					if (cacheBookmap[idx] != null && cacheBookmap[idx]._SessionSaveFilePath == _sessionSaveFilePath && cacheBookmap[idx]._SessionLoadFilePath == _sessionLoadFilePath && cacheBookmap[idx]._SaveSession == _saveSession && cacheBookmap[idx]._FilterSessionPendingOrdersPer == _filterSessionPendingOrdersPer && cacheBookmap[idx]._LadderRange == _ladderRange && cacheBookmap[idx]._MarketOrdersCalculation == _marketOrdersCalculation && cacheBookmap[idx]._MarketBarsCalculation == _marketBarsCalculation && cacheBookmap[idx]._AggresiveMarketOrdersFilter == _aggresiveMarketOrdersFilter && cacheBookmap[idx]._FilterBigPendingOrders == _filterBigPendingOrders && cacheBookmap[idx]._FilterPendingOrdersPer == _filterPendingOrdersPer && cacheBookmap[idx]._FilterTextPendingOrdersPer == _filterTextPendingOrdersPer && cacheBookmap[idx]._ShowMarketOrdersText == _showMarketOrdersText && cacheBookmap[idx]._BookMarginRight == _bookMarginRight && cacheBookmap[idx]._BackgroundColorOpacity == _backgroundColorOpacity && cacheBookmap[idx]._BigPendingOrdersOpacity == _bigPendingOrdersOpacity && cacheBookmap[idx]._BookmapTextFont == _bookmapTextFont && cacheBookmap[idx]._BookmapMinFontWidth == _bookmapMinFontWidth && cacheBookmap[idx]._BookmapMinFontHeight == _bookmapMinFontHeight && cacheBookmap[idx]._BidPendingOrdersTextOpacity == _bidPendingOrdersTextOpacity && cacheBookmap[idx]._AskPendingOrdersTextOpacity == _askPendingOrdersTextOpacity && cacheBookmap[idx]._BidMarketOrdersTextOpacity == _bidMarketOrdersTextOpacity && cacheBookmap[idx]._AskMarketOrdersTextOpacity == _askMarketOrdersTextOpacity && cacheBookmap[idx]._TotalMarketOrdersTextOpacity == _totalMarketOrdersTextOpacity && cacheBookmap[idx]._MarketCummulativeCalculation == _marketCummulativeCalculation && cacheBookmap[idx]._CummulativeBookTextFont == _cummulativeBookTextFont && cacheBookmap[idx]._CummulativeBookMinFontWidth == _cummulativeBookMinFontWidth && cacheBookmap[idx]._CummulativeBookMinFontHeight == _cummulativeBookMinFontHeight && cacheBookmap[idx]._BidMarketCummulativeTextOpacity == _bidMarketCummulativeTextOpacity && cacheBookmap[idx]._AskMarketCummulativeTextOpacity == _askMarketCummulativeTextOpacity && cacheBookmap[idx]._TotalMarketCummulativeTextOpacity == _totalMarketCummulativeTextOpacity && cacheBookmap[idx]._BidOrderBookOpacity == _bidOrderBookOpacity && cacheBookmap[idx]._AskOrderBookOpacity == _askOrderBookOpacity && cacheBookmap[idx]._OrderBookTextFont == _orderBookTextFont && cacheBookmap[idx]._OrderBookTextMinFontWidth == _orderBookTextMinFontWidth && cacheBookmap[idx]._OrderBookTextMinFontHeight == _orderBookTextMinFontHeight && cacheBookmap[idx]._BidOrderBookTextOpacity == _bidOrderBookTextOpacity && cacheBookmap[idx]._AskOrderBookTextOpacity == _askOrderBookTextOpacity && cacheBookmap[idx].EqualsInput(input))
-						return cacheBookmap[idx];
-			return CacheIndicator<OrderFlow_Suite_RHODIZ_v1_0_0.Bookmap>(new OrderFlow_Suite_RHODIZ_v1_0_0.Bookmap(){ _SessionSaveFilePath = _sessionSaveFilePath, _SessionLoadFilePath = _sessionLoadFilePath, _SaveSession = _saveSession, _FilterSessionPendingOrdersPer = _filterSessionPendingOrdersPer, _LadderRange = _ladderRange, _MarketOrdersCalculation = _marketOrdersCalculation, _MarketBarsCalculation = _marketBarsCalculation, _AggresiveMarketOrdersFilter = _aggresiveMarketOrdersFilter, _FilterBigPendingOrders = _filterBigPendingOrders, _FilterPendingOrdersPer = _filterPendingOrdersPer, _FilterTextPendingOrdersPer = _filterTextPendingOrdersPer, _ShowMarketOrdersText = _showMarketOrdersText, _BookMarginRight = _bookMarginRight, _BackgroundColorOpacity = _backgroundColorOpacity, _BigPendingOrdersOpacity = _bigPendingOrdersOpacity, _BookmapTextFont = _bookmapTextFont, _BookmapMinFontWidth = _bookmapMinFontWidth, _BookmapMinFontHeight = _bookmapMinFontHeight, _BidPendingOrdersTextOpacity = _bidPendingOrdersTextOpacity, _AskPendingOrdersTextOpacity = _askPendingOrdersTextOpacity, _BidMarketOrdersTextOpacity = _bidMarketOrdersTextOpacity, _AskMarketOrdersTextOpacity = _askMarketOrdersTextOpacity, _TotalMarketOrdersTextOpacity = _totalMarketOrdersTextOpacity, _MarketCummulativeCalculation = _marketCummulativeCalculation, _CummulativeBookTextFont = _cummulativeBookTextFont, _CummulativeBookMinFontWidth = _cummulativeBookMinFontWidth, _CummulativeBookMinFontHeight = _cummulativeBookMinFontHeight, _BidMarketCummulativeTextOpacity = _bidMarketCummulativeTextOpacity, _AskMarketCummulativeTextOpacity = _askMarketCummulativeTextOpacity, _TotalMarketCummulativeTextOpacity = _totalMarketCummulativeTextOpacity, _BidOrderBookOpacity = _bidOrderBookOpacity, _AskOrderBookOpacity = _askOrderBookOpacity, _OrderBookTextFont = _orderBookTextFont, _OrderBookTextMinFontWidth = _orderBookTextMinFontWidth, _OrderBookTextMinFontHeight = _orderBookTextMinFontHeight, _BidOrderBookTextOpacity = _bidOrderBookTextOpacity, _AskOrderBookTextOpacity = _askOrderBookTextOpacity }, input, ref cacheBookmap);
+			if (cacheHeatMapFlow != null)
+				for (int idx = 0; idx < cacheHeatMapFlow.Length; idx++)
+					if (cacheHeatMapFlow[idx] != null && cacheHeatMapFlow[idx]._SessionSaveFilePath == _sessionSaveFilePath && cacheHeatMapFlow[idx]._SessionLoadFilePath == _sessionLoadFilePath && cacheHeatMapFlow[idx]._SaveSession == _saveSession && cacheHeatMapFlow[idx]._FilterSessionPendingOrdersPer == _filterSessionPendingOrdersPer && cacheHeatMapFlow[idx]._LadderRange == _ladderRange && cacheHeatMapFlow[idx]._MarketOrdersCalculation == _marketOrdersCalculation && cacheHeatMapFlow[idx]._MarketBarsCalculation == _marketBarsCalculation && cacheHeatMapFlow[idx]._AggresiveMarketOrdersFilter == _aggresiveMarketOrdersFilter && cacheHeatMapFlow[idx]._FilterBigPendingOrders == _filterBigPendingOrders && cacheHeatMapFlow[idx]._FilterPendingOrdersPer == _filterPendingOrdersPer && cacheHeatMapFlow[idx]._FilterTextPendingOrdersPer == _filterTextPendingOrdersPer && cacheHeatMapFlow[idx]._ShowMarketOrdersText == _showMarketOrdersText && cacheHeatMapFlow[idx]._BookMarginRight == _bookMarginRight && cacheHeatMapFlow[idx]._BackgroundColorOpacity == _backgroundColorOpacity && cacheHeatMapFlow[idx]._BigPendingOrdersOpacity == _bigPendingOrdersOpacity && cacheHeatMapFlow[idx]._HeatMapFlowTextFont == _bookmapTextFont && cacheHeatMapFlow[idx]._HeatMapFlowMinFontWidth == _bookmapMinFontWidth && cacheHeatMapFlow[idx]._HeatMapFlowMinFontHeight == _bookmapMinFontHeight && cacheHeatMapFlow[idx]._BidPendingOrdersTextOpacity == _bidPendingOrdersTextOpacity && cacheHeatMapFlow[idx]._AskPendingOrdersTextOpacity == _askPendingOrdersTextOpacity && cacheHeatMapFlow[idx]._BidMarketOrdersTextOpacity == _bidMarketOrdersTextOpacity && cacheHeatMapFlow[idx]._AskMarketOrdersTextOpacity == _askMarketOrdersTextOpacity && cacheHeatMapFlow[idx]._TotalMarketOrdersTextOpacity == _totalMarketOrdersTextOpacity && cacheHeatMapFlow[idx]._MarketCummulativeCalculation == _marketCummulativeCalculation && cacheHeatMapFlow[idx]._CummulativeBookTextFont == _cummulativeBookTextFont && cacheHeatMapFlow[idx]._CummulativeBookMinFontWidth == _cummulativeBookMinFontWidth && cacheHeatMapFlow[idx]._CummulativeBookMinFontHeight == _cummulativeBookMinFontHeight && cacheHeatMapFlow[idx]._BidMarketCummulativeTextOpacity == _bidMarketCummulativeTextOpacity && cacheHeatMapFlow[idx]._AskMarketCummulativeTextOpacity == _askMarketCummulativeTextOpacity && cacheHeatMapFlow[idx]._TotalMarketCummulativeTextOpacity == _totalMarketCummulativeTextOpacity && cacheHeatMapFlow[idx]._BidOrderBookOpacity == _bidOrderBookOpacity && cacheHeatMapFlow[idx]._AskOrderBookOpacity == _askOrderBookOpacity && cacheHeatMapFlow[idx]._OrderBookTextFont == _orderBookTextFont && cacheHeatMapFlow[idx]._OrderBookTextMinFontWidth == _orderBookTextMinFontWidth && cacheHeatMapFlow[idx]._OrderBookTextMinFontHeight == _orderBookTextMinFontHeight && cacheHeatMapFlow[idx]._BidOrderBookTextOpacity == _bidOrderBookTextOpacity && cacheHeatMapFlow[idx]._AskOrderBookTextOpacity == _askOrderBookTextOpacity && cacheHeatMapFlow[idx].EqualsInput(input))
+						return cacheHeatMapFlow[idx];
+			return CacheIndicator<OrderFlow_Suite_RHODIZ_v1_0_0.HeatMapFlow>(new OrderFlow_Suite_RHODIZ_v1_0_0.HeatMapFlow(){ _SessionSaveFilePath = _sessionSaveFilePath, _SessionLoadFilePath = _sessionLoadFilePath, _SaveSession = _saveSession, _FilterSessionPendingOrdersPer = _filterSessionPendingOrdersPer, _LadderRange = _ladderRange, _MarketOrdersCalculation = _marketOrdersCalculation, _MarketBarsCalculation = _marketBarsCalculation, _AggresiveMarketOrdersFilter = _aggresiveMarketOrdersFilter, _FilterBigPendingOrders = _filterBigPendingOrders, _FilterPendingOrdersPer = _filterPendingOrdersPer, _FilterTextPendingOrdersPer = _filterTextPendingOrdersPer, _ShowMarketOrdersText = _showMarketOrdersText, _BookMarginRight = _bookMarginRight, _BackgroundColorOpacity = _backgroundColorOpacity, _BigPendingOrdersOpacity = _bigPendingOrdersOpacity, _HeatMapFlowTextFont = _bookmapTextFont, _HeatMapFlowMinFontWidth = _bookmapMinFontWidth, _HeatMapFlowMinFontHeight = _bookmapMinFontHeight, _BidPendingOrdersTextOpacity = _bidPendingOrdersTextOpacity, _AskPendingOrdersTextOpacity = _askPendingOrdersTextOpacity, _BidMarketOrdersTextOpacity = _bidMarketOrdersTextOpacity, _AskMarketOrdersTextOpacity = _askMarketOrdersTextOpacity, _TotalMarketOrdersTextOpacity = _totalMarketOrdersTextOpacity, _MarketCummulativeCalculation = _marketCummulativeCalculation, _CummulativeBookTextFont = _cummulativeBookTextFont, _CummulativeBookMinFontWidth = _cummulativeBookMinFontWidth, _CummulativeBookMinFontHeight = _cummulativeBookMinFontHeight, _BidMarketCummulativeTextOpacity = _bidMarketCummulativeTextOpacity, _AskMarketCummulativeTextOpacity = _askMarketCummulativeTextOpacity, _TotalMarketCummulativeTextOpacity = _totalMarketCummulativeTextOpacity, _BidOrderBookOpacity = _bidOrderBookOpacity, _AskOrderBookOpacity = _askOrderBookOpacity, _OrderBookTextFont = _orderBookTextFont, _OrderBookTextMinFontWidth = _orderBookTextMinFontWidth, _OrderBookTextMinFontHeight = _orderBookTextMinFontHeight, _BidOrderBookTextOpacity = _bidOrderBookTextOpacity, _AskOrderBookTextOpacity = _askOrderBookTextOpacity }, input, ref cacheHeatMapFlow);
 		}
 	}
 }
@@ -1598,14 +1598,14 @@ namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
 {
 	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
 	{
-		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.Bookmap Bookmap(string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.HeatMapFlow HeatMapFlow(string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
 		{
-			return indicator.Bookmap(Input, _sessionSaveFilePath, _sessionLoadFilePath, _saveSession, _filterSessionPendingOrdersPer, _ladderRange, _marketOrdersCalculation, _marketBarsCalculation, _aggresiveMarketOrdersFilter, _filterBigPendingOrders, _filterPendingOrdersPer, _filterTextPendingOrdersPer, _showMarketOrdersText, _bookMarginRight, _backgroundColorOpacity, _bigPendingOrdersOpacity, _bookmapTextFont, _bookmapMinFontWidth, _bookmapMinFontHeight, _bidPendingOrdersTextOpacity, _askPendingOrdersTextOpacity, _bidMarketOrdersTextOpacity, _askMarketOrdersTextOpacity, _totalMarketOrdersTextOpacity, _marketCummulativeCalculation, _cummulativeBookTextFont, _cummulativeBookMinFontWidth, _cummulativeBookMinFontHeight, _bidMarketCummulativeTextOpacity, _askMarketCummulativeTextOpacity, _totalMarketCummulativeTextOpacity, _bidOrderBookOpacity, _askOrderBookOpacity, _orderBookTextFont, _orderBookTextMinFontWidth, _orderBookTextMinFontHeight, _bidOrderBookTextOpacity, _askOrderBookTextOpacity);
+			return indicator.HeatMapFlow(Input, _sessionSaveFilePath, _sessionLoadFilePath, _saveSession, _filterSessionPendingOrdersPer, _ladderRange, _marketOrdersCalculation, _marketBarsCalculation, _aggresiveMarketOrdersFilter, _filterBigPendingOrders, _filterPendingOrdersPer, _filterTextPendingOrdersPer, _showMarketOrdersText, _bookMarginRight, _backgroundColorOpacity, _bigPendingOrdersOpacity, _bookmapTextFont, _bookmapMinFontWidth, _bookmapMinFontHeight, _bidPendingOrdersTextOpacity, _askPendingOrdersTextOpacity, _bidMarketOrdersTextOpacity, _askMarketOrdersTextOpacity, _totalMarketOrdersTextOpacity, _marketCummulativeCalculation, _cummulativeBookTextFont, _cummulativeBookMinFontWidth, _cummulativeBookMinFontHeight, _bidMarketCummulativeTextOpacity, _askMarketCummulativeTextOpacity, _totalMarketCummulativeTextOpacity, _bidOrderBookOpacity, _askOrderBookOpacity, _orderBookTextFont, _orderBookTextMinFontWidth, _orderBookTextMinFontHeight, _bidOrderBookTextOpacity, _askOrderBookTextOpacity);
 		}
 
-		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.Bookmap Bookmap(ISeries<double> input , string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.HeatMapFlow HeatMapFlow(ISeries<double> input , string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
 		{
-			return indicator.Bookmap(input, _sessionSaveFilePath, _sessionLoadFilePath, _saveSession, _filterSessionPendingOrdersPer, _ladderRange, _marketOrdersCalculation, _marketBarsCalculation, _aggresiveMarketOrdersFilter, _filterBigPendingOrders, _filterPendingOrdersPer, _filterTextPendingOrdersPer, _showMarketOrdersText, _bookMarginRight, _backgroundColorOpacity, _bigPendingOrdersOpacity, _bookmapTextFont, _bookmapMinFontWidth, _bookmapMinFontHeight, _bidPendingOrdersTextOpacity, _askPendingOrdersTextOpacity, _bidMarketOrdersTextOpacity, _askMarketOrdersTextOpacity, _totalMarketOrdersTextOpacity, _marketCummulativeCalculation, _cummulativeBookTextFont, _cummulativeBookMinFontWidth, _cummulativeBookMinFontHeight, _bidMarketCummulativeTextOpacity, _askMarketCummulativeTextOpacity, _totalMarketCummulativeTextOpacity, _bidOrderBookOpacity, _askOrderBookOpacity, _orderBookTextFont, _orderBookTextMinFontWidth, _orderBookTextMinFontHeight, _bidOrderBookTextOpacity, _askOrderBookTextOpacity);
+			return indicator.HeatMapFlow(input, _sessionSaveFilePath, _sessionLoadFilePath, _saveSession, _filterSessionPendingOrdersPer, _ladderRange, _marketOrdersCalculation, _marketBarsCalculation, _aggresiveMarketOrdersFilter, _filterBigPendingOrders, _filterPendingOrdersPer, _filterTextPendingOrdersPer, _showMarketOrdersText, _bookMarginRight, _backgroundColorOpacity, _bigPendingOrdersOpacity, _bookmapTextFont, _bookmapMinFontWidth, _bookmapMinFontHeight, _bidPendingOrdersTextOpacity, _askPendingOrdersTextOpacity, _bidMarketOrdersTextOpacity, _askMarketOrdersTextOpacity, _totalMarketOrdersTextOpacity, _marketCummulativeCalculation, _cummulativeBookTextFont, _cummulativeBookMinFontWidth, _cummulativeBookMinFontHeight, _bidMarketCummulativeTextOpacity, _askMarketCummulativeTextOpacity, _totalMarketCummulativeTextOpacity, _bidOrderBookOpacity, _askOrderBookOpacity, _orderBookTextFont, _orderBookTextMinFontWidth, _orderBookTextMinFontHeight, _bidOrderBookTextOpacity, _askOrderBookTextOpacity);
 		}
 	}
 }
@@ -1614,14 +1614,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 {
 	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
 	{
-		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.Bookmap Bookmap(string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.HeatMapFlow HeatMapFlow(string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
 		{
-			return indicator.Bookmap(Input, _sessionSaveFilePath, _sessionLoadFilePath, _saveSession, _filterSessionPendingOrdersPer, _ladderRange, _marketOrdersCalculation, _marketBarsCalculation, _aggresiveMarketOrdersFilter, _filterBigPendingOrders, _filterPendingOrdersPer, _filterTextPendingOrdersPer, _showMarketOrdersText, _bookMarginRight, _backgroundColorOpacity, _bigPendingOrdersOpacity, _bookmapTextFont, _bookmapMinFontWidth, _bookmapMinFontHeight, _bidPendingOrdersTextOpacity, _askPendingOrdersTextOpacity, _bidMarketOrdersTextOpacity, _askMarketOrdersTextOpacity, _totalMarketOrdersTextOpacity, _marketCummulativeCalculation, _cummulativeBookTextFont, _cummulativeBookMinFontWidth, _cummulativeBookMinFontHeight, _bidMarketCummulativeTextOpacity, _askMarketCummulativeTextOpacity, _totalMarketCummulativeTextOpacity, _bidOrderBookOpacity, _askOrderBookOpacity, _orderBookTextFont, _orderBookTextMinFontWidth, _orderBookTextMinFontHeight, _bidOrderBookTextOpacity, _askOrderBookTextOpacity);
+			return indicator.HeatMapFlow(Input, _sessionSaveFilePath, _sessionLoadFilePath, _saveSession, _filterSessionPendingOrdersPer, _ladderRange, _marketOrdersCalculation, _marketBarsCalculation, _aggresiveMarketOrdersFilter, _filterBigPendingOrders, _filterPendingOrdersPer, _filterTextPendingOrdersPer, _showMarketOrdersText, _bookMarginRight, _backgroundColorOpacity, _bigPendingOrdersOpacity, _bookmapTextFont, _bookmapMinFontWidth, _bookmapMinFontHeight, _bidPendingOrdersTextOpacity, _askPendingOrdersTextOpacity, _bidMarketOrdersTextOpacity, _askMarketOrdersTextOpacity, _totalMarketOrdersTextOpacity, _marketCummulativeCalculation, _cummulativeBookTextFont, _cummulativeBookMinFontWidth, _cummulativeBookMinFontHeight, _bidMarketCummulativeTextOpacity, _askMarketCummulativeTextOpacity, _totalMarketCummulativeTextOpacity, _bidOrderBookOpacity, _askOrderBookOpacity, _orderBookTextFont, _orderBookTextMinFontWidth, _orderBookTextMinFontHeight, _bidOrderBookTextOpacity, _askOrderBookTextOpacity);
 		}
 
-		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.Bookmap Bookmap(ISeries<double> input , string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
+		public Indicators.OrderFlow_Suite_RHODIZ_v1_0_0.HeatMapFlow HeatMapFlow(ISeries<double> input , string _sessionSaveFilePath, string _sessionLoadFilePath, bool _saveSession, float _filterSessionPendingOrdersPer, _BookMapEnums.LadderRange _ladderRange, _BookMapEnums.MarketOrdersCalculation _marketOrdersCalculation, _BookMapEnums.MarketBarsCalculation _marketBarsCalculation, long _aggresiveMarketOrdersFilter, long _filterBigPendingOrders, float _filterPendingOrdersPer, float _filterTextPendingOrdersPer, bool _showMarketOrdersText, int _bookMarginRight, float _backgroundColorOpacity, float _bigPendingOrdersOpacity, SimpleFont _bookmapTextFont, float _bookmapMinFontWidth, float _bookmapMinFontHeight, float _bidPendingOrdersTextOpacity, float _askPendingOrdersTextOpacity, float _bidMarketOrdersTextOpacity, float _askMarketOrdersTextOpacity, float _totalMarketOrdersTextOpacity, _BookMapEnums.MarketCummulativeCalculation _marketCummulativeCalculation, SimpleFont _cummulativeBookTextFont, float _cummulativeBookMinFontWidth, float _cummulativeBookMinFontHeight, float _bidMarketCummulativeTextOpacity, float _askMarketCummulativeTextOpacity, float _totalMarketCummulativeTextOpacity, float _bidOrderBookOpacity, float _askOrderBookOpacity, SimpleFont _orderBookTextFont, float _orderBookTextMinFontWidth, float _orderBookTextMinFontHeight, float _bidOrderBookTextOpacity, float _askOrderBookTextOpacity)
 		{
-			return indicator.Bookmap(input, _sessionSaveFilePath, _sessionLoadFilePath, _saveSession, _filterSessionPendingOrdersPer, _ladderRange, _marketOrdersCalculation, _marketBarsCalculation, _aggresiveMarketOrdersFilter, _filterBigPendingOrders, _filterPendingOrdersPer, _filterTextPendingOrdersPer, _showMarketOrdersText, _bookMarginRight, _backgroundColorOpacity, _bigPendingOrdersOpacity, _bookmapTextFont, _bookmapMinFontWidth, _bookmapMinFontHeight, _bidPendingOrdersTextOpacity, _askPendingOrdersTextOpacity, _bidMarketOrdersTextOpacity, _askMarketOrdersTextOpacity, _totalMarketOrdersTextOpacity, _marketCummulativeCalculation, _cummulativeBookTextFont, _cummulativeBookMinFontWidth, _cummulativeBookMinFontHeight, _bidMarketCummulativeTextOpacity, _askMarketCummulativeTextOpacity, _totalMarketCummulativeTextOpacity, _bidOrderBookOpacity, _askOrderBookOpacity, _orderBookTextFont, _orderBookTextMinFontWidth, _orderBookTextMinFontHeight, _bidOrderBookTextOpacity, _askOrderBookTextOpacity);
+			return indicator.HeatMapFlow(input, _sessionSaveFilePath, _sessionLoadFilePath, _saveSession, _filterSessionPendingOrdersPer, _ladderRange, _marketOrdersCalculation, _marketBarsCalculation, _aggresiveMarketOrdersFilter, _filterBigPendingOrders, _filterPendingOrdersPer, _filterTextPendingOrdersPer, _showMarketOrdersText, _bookMarginRight, _backgroundColorOpacity, _bigPendingOrdersOpacity, _bookmapTextFont, _bookmapMinFontWidth, _bookmapMinFontHeight, _bidPendingOrdersTextOpacity, _askPendingOrdersTextOpacity, _bidMarketOrdersTextOpacity, _askMarketOrdersTextOpacity, _totalMarketOrdersTextOpacity, _marketCummulativeCalculation, _cummulativeBookTextFont, _cummulativeBookMinFontWidth, _cummulativeBookMinFontHeight, _bidMarketCummulativeTextOpacity, _askMarketCummulativeTextOpacity, _totalMarketCummulativeTextOpacity, _bidOrderBookOpacity, _askOrderBookOpacity, _orderBookTextFont, _orderBookTextMinFontWidth, _orderBookTextMinFontHeight, _bidOrderBookTextOpacity, _askOrderBookTextOpacity);
 		}
 	}
 }
