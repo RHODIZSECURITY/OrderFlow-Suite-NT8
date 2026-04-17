@@ -1,9 +1,8 @@
 // Support & Resistance Zone Detection
 // Detection methods: Pivots / Donchian / CSID
-// Zone depth: ATR multiplier
-// Display: Levels or Zones
-// Overlap handling: None / Merge / Hide Overlapping (Oldest / Youngest Precedence)
-// Visible count above/below price
+// Zones: ATR-depth rectangles anchored at detection bar, extending right
+// Mitigation: close beyond zone → dashed break line
+// Overlap: None / Merge / Hide
 
 #region Using declarations
 using System;
@@ -33,16 +32,15 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             public double Top, Bot, Base;
             public bool   IsSupport;
             public bool   Mitigated;
-            public int    Strength;
+            public bool   Hidden;        // hidden by visibility enforcement
+            public int    Strength;      // retest count
             public int    Sweeps;
             public int    StartBar;
             public string Tag, LblTag;
-            public bool   InZone;  // tracks if price was inside zone last bar (for retest counting)
+            public bool   InZone;        // price was inside zone last bar
         }
 
         private readonly List<SRZone> _levels = new List<SRZone>();
-
-        // Donchian state
         private int    _donchOs;
         private double _donchVal = double.NaN;
         private int    _bullCount, _bearCount;
@@ -52,27 +50,27 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (State == State.SetDefaults)
             {
                 Name           = "Support Resistance";
-                Description    = "Support & Resistance Zones — Pivots / Donchian / CSID detection with zone depth, overlap handling and visibility control.";
+                Description    = "S&R Zones — Pivots / Donchian / CSID · ATR depth · Mitigation · Overlap handling.";
                 Calculate      = Calculate.OnBarClose;
                 IsOverlay      = true;
-                MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
-                DrawOnPricePanel   = true;
-                ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;
+                MaximumBarsLookBack      = MaximumBarsLookBack.Infinite;
+                DrawOnPricePanel         = true;
                 IsSuspendedWhileInactive = true;
 
-                DetectionMethod  = SrDetectionMethod.Donchian;
-                SwingSensitivity = 10;
+                DetectionMethod  = SrDetectionMethod.Pivots;
+                SwingSensitivity = 5;
                 DisplayType      = SrDisplayType.Zones;
                 ZoneDepthAtr     = 0.5;
                 BreakoutBuffer   = 0.1;
+                ZoneOpacity      = 20;
                 OverlapHandling  = SrOverlapMode.HideOldest;
-                MaxHistory       = 6;
-                VisibleAbove     = 3;
-                VisibleBelow     = 3;
+                MaxHistory       = 8;
+                VisibleAbove     = 4;
+                VisibleBelow     = 4;
                 ShowLabels       = true;
                 ShowBreakLines   = true;
-                ResistColor      = new SolidColorBrush(Color.FromArgb(153, 255,   0,   0));  // red 40% transp
-                SupportColor     = new SolidColorBrush(Color.FromArgb(153,  43, 255,   0));  // green 40% transp
+                ResistColor      = new SolidColorBrush(Color.FromArgb(200, 255,  80,  80));
+                SupportColor     = new SolidColorBrush(Color.FromArgb(200,  80, 200,  80));
             }
             else if (State == State.DataLoaded)
             {
@@ -84,212 +82,262 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
         protected override void OnBarUpdate()
         {
-            if (CurrentBar < (int)SwingSensitivity * 2 + 2) return;
+            if (CurrentBar < (int)SwingSensitivity * 2 + 4) return;
 
-            double atr     = ATR(14)[0];
-            double zDepth  = atr * ZoneDepthAtr;
+            double atr      = ATR(14)[0];
+            if (atr <= 0) return;
+            double zDepth   = atr * ZoneDepthAtr;
             double breakBuf = atr * BreakoutBuffer;
-            int    len     = (int)SwingSensitivity;
+            int    len      = Math.Max(2, (int)SwingSensitivity);
 
+            // ── Detect new pivot highs / lows ─────────────────────────────────
             double detPH = double.NaN, detPL = double.NaN;
 
             switch (DetectionMethod)
             {
                 case SrDetectionMethod.Pivots:
-                    // Classic pivot high/low
-                    bool isPH = true;
-                    double pivH = High[len];
-                    for (int i = 0; i < len * 2 + 1; i++) { if (i == len) continue; if (High[i] > pivH) { isPH = false; break; } }
-                    if (isPH) detPH = pivH;
-
-                    bool isPL = true;
-                    double pivL = Low[len];
-                    for (int i = 0; i < len * 2 + 1; i++) { if (i == len) continue; if (Low[i] < pivL) { isPL = false; break; } }
-                    if (isPL) detPL = pivL;
+                    detPH = DetectPivotHigh(len);
+                    detPL = DetectPivotLow(len);
                     break;
 
                 case SrDetectionMethod.Donchian:
-                    // Track direction changes in highest/lowest
-                    double dHigh = MAX(High, len)[0];
-                    double dLow  = MIN(Low,  len)[0];
-                    int newOs = dHigh > (CurrentBar > len ? MAX(High, len)[1] : dHigh) ? 1
-                              : dLow  < (CurrentBar > len ? MIN(Low,  len)[1] : dLow)  ? -1
-                              : _donchOs;
-
-                    if (newOs != _donchOs && newOs != 0)
-                    {
-                        if (newOs == 1 && !double.IsNaN(_donchVal)) detPL = _donchVal;
-                        if (newOs == -1 && !double.IsNaN(_donchVal)) detPH = _donchVal;
-                        _donchVal = newOs == 1 ? dHigh : dLow;
-                    }
-                    else
-                    {
-                        if (_donchOs == 1  && dHigh >= (_donchVal > double.MinValue ? _donchVal : double.MinValue)) _donchVal = dHigh;
-                        if (_donchOs == -1 && dLow  <= (_donchVal < double.MaxValue ? _donchVal : double.MaxValue)) _donchVal = dLow;
-                    }
-                    _donchOs = newOs;
+                    DonchianDetect(len, out detPH, out detPL);
                     break;
 
                 case SrDetectionMethod.CSID:
-                    // Consecutive same-direction candles
                     _bullCount = Close[0] > Open[0] ? _bullCount + 1 : 0;
                     _bearCount = Close[0] < Open[0] ? _bearCount + 1 : 0;
-                    if (_bullCount >= len) detPH = MAX(High, len)[0];
-                    if (_bearCount >= len) detPL = MIN(Low,  len)[0];
+                    if (_bullCount == len) detPH = MAX(High, len)[0];
+                    if (_bearCount == len) detPL = MIN(Low,  len)[0];
                     break;
             }
 
-            // ── Add detected levels ───────────────────────────────────────────
             if (!double.IsNaN(detPH))
-            {
-                double rTop = detPH + breakBuf;
-                double rBot = detPH - zDepth;
-                HandleStructure(rTop, rBot, detPH, false);
-            }
+                AddZone(detPH + breakBuf, detPH - zDepth, detPH, false);
             if (!double.IsNaN(detPL))
-            {
-                double sTop = detPL + zDepth;
-                double sBot = detPL - breakBuf;
-                HandleStructure(sTop, sBot, detPL, true);
-            }
+                AddZone(detPL + zDepth, detPL - breakBuf, detPL, true);
 
-            // ── Mitigation & sweep tracking ───────────────────────────────────
+            // ── Update existing zones (mitigation, retests, sweeps) ───────────
             for (int i = _levels.Count - 1; i >= 0; i--)
             {
-                var lvl = _levels[i];
-                if (lvl.Mitigated) continue;
+                SRZone z = _levels[i];
+                if (z.Mitigated) continue;
 
-                // Mitigation: close breaks through zone
-                bool broken = lvl.IsSupport
-                    ? Close[0] < lvl.Bot
-                    : Close[0] > lvl.Top;
+                // Mitigation: close breaks cleanly through zone
+                bool broken = z.IsSupport ? Close[0] < z.Bot : Close[0] > z.Top;
                 if (broken)
                 {
-                    var upd = lvl; upd.Mitigated = true; _levels[i] = upd;
+                    z.Mitigated = true; _levels[i] = z;
+                    RemoveDrawObject(z.Tag);
+                    RemoveDrawObject(z.LblTag);
                     if (ShowBreakLines)
                     {
-                        Brush bc = lvl.IsSupport ? SupportColor : ResistColor;
-                        Draw.HorizontalLine(this, lvl.Tag + "_brk", lvl.Base, bc, DashStyleHelper.Dash, 1);
+                        Brush bc = z.IsSupport ? SupportColor : ResistColor;
+                        Draw.HorizontalLine(this, z.Tag + "_brk", z.Base, bc, DashStyleHelper.Dash, 1);
                     }
-                    else { RemoveDrawObject(lvl.Tag); RemoveDrawObject(lvl.LblTag); }
                     continue;
                 }
 
-                // Sweep: wick through zone then close back
-                bool swept = lvl.IsSupport
-                    ? Low[0] < lvl.Bot  && Close[0] > lvl.Bot
-                    : High[0] > lvl.Top && Close[0] < lvl.Top;
-                if (swept)
+                // Liquidity sweep: wick through then close back
+                bool swept = z.IsSupport
+                    ? Low[0]  < z.Bot  && Close[0] > z.Bot
+                    : High[0] > z.Top  && Close[0] < z.Top;
+                if (swept) { z.Sweeps++; _levels[i] = z; }
+
+                // Retest strength: count each fresh visit into zone
+                bool inside = High[0] >= z.Bot && Low[0] <= z.Top;
+                if (inside && !z.InZone)
                 {
-                    var upd = lvl; upd.Sweeps++; _levels[i] = upd;
+                    z.Strength++; z.InZone = true; _levels[i] = z;
+                }
+                else if (!inside && z.InZone)
+                {
+                    z.InZone = false; _levels[i] = z;
                 }
 
-                // Retest tracking: price enters zone without breaking → increment Strength once per visit
-                bool touching = High[0] >= lvl.Bot && Low[0] <= lvl.Top;
-                if (touching && !_levels[i].InZone)
-                {
-                    var upd = _levels[i]; upd.Strength++; upd.InZone = true; _levels[i] = upd;
-                }
-                else if (!touching && _levels[i].InZone)
-                {
-                    var upd = _levels[i]; upd.InZone = false; _levels[i] = upd;
-                }
-
-                // Refresh draw
-                RedrawLevel(_levels[i]);
+                if (!z.Hidden) RedrawZone(_levels[i]);
             }
 
-            // ── Visibility control: only show N zones above/below price ────────
             EnforceVisibility();
         }
 
-        private void HandleStructure(double top, double bot, double basePrice, bool isSupport)
+        // ── Pivot detection helpers ───────────────────────────────────────────
+        private double DetectPivotHigh(int len)
         {
-            // Trim if over max history
-            int count = 0;
-            int oldestIdx = -1;
+            // Need len bars on each side confirmed → fires len bars after the pivot
+            if (CurrentBar < len * 2 + 1) return double.NaN;
+            double h = High[len];
+            for (int i = 0; i <= len * 2; i++)
+            {
+                if (i == len) continue;
+                if (High[i] >= h) return double.NaN;
+            }
+            return h;
+        }
+
+        private double DetectPivotLow(int len)
+        {
+            if (CurrentBar < len * 2 + 1) return double.NaN;
+            double l = Low[len];
+            for (int i = 0; i <= len * 2; i++)
+            {
+                if (i == len) continue;
+                if (Low[i] <= l) return double.NaN;
+            }
+            return l;
+        }
+
+        private void DonchianDetect(int len, out double detPH, out double detPL)
+        {
+            detPH = double.NaN; detPL = double.NaN;
+            double dHigh = MAX(High, len)[0];
+            double dLow  = MIN(Low,  len)[0];
+
+            // Direction: 1 = up (new highest high), -1 = down (new lowest low)
+            int prev = CurrentBar > len ? (MAX(High, len)[1] < dHigh ? 1 :
+                                           MIN(Low,  len)[1] > dLow  ? -1 : _donchOs)
+                                        : _donchOs;
+
+            if (prev != _donchOs && prev != 0)
+            {
+                // Direction flip: previous extreme becomes a level
+                if (prev ==  1 && !double.IsNaN(_donchVal)) detPL = _donchVal;
+                if (prev == -1 && !double.IsNaN(_donchVal)) detPH = _donchVal;
+                _donchVal = prev == 1 ? dHigh : dLow;
+            }
+            else
+            {
+                // Extend extreme in current direction
+                if (_donchOs ==  1 && dHigh > _donchVal) _donchVal = dHigh;
+                if (_donchOs == -1 && dLow  < _donchVal) _donchVal = dLow;
+            }
+            _donchOs = prev == 0 ? _donchOs : prev;
+        }
+
+        // ── Add / merge zone ──────────────────────────────────────────────────
+        private void AddZone(double top, double bot, double basePrice, bool isSupport)
+        {
+            // Overlap handling
+            for (int i = _levels.Count - 1; i >= 0; i--)
+            {
+                SRZone ex = _levels[i];
+                if (ex.Mitigated || ex.IsSupport != isSupport) continue;
+                bool overlaps = Math.Max(bot, ex.Bot) < Math.Min(top, ex.Top);
+                if (!overlaps) continue;
+
+                switch (OverlapHandling)
+                {
+                    case SrOverlapMode.HideYoungest:
+                        return;  // discard incoming
+
+                    case SrOverlapMode.HideOldest:
+                        RemoveDrawObject(ex.Tag); RemoveDrawObject(ex.LblTag);
+                        _levels.RemoveAt(i);
+                        break;
+
+                    case SrOverlapMode.MergeOverlapping:
+                        SRZone m = ex;
+                        m.Top = Math.Max(ex.Top, top);
+                        m.Bot = Math.Min(ex.Bot, bot);
+                        _levels[i] = m;
+                        RedrawZone(m);
+                        return;
+                }
+            }
+
+            // Enforce max history: remove the OLDEST active zone of same type
+            int activeCount = 0;
+            int oldestBar = int.MaxValue, oldestIdx = -1;
             for (int i = 0; i < _levels.Count; i++)
             {
-                if (!_levels[i].Mitigated && _levels[i].IsSupport == isSupport)
-                { count++; oldestIdx = i; }
+                if (_levels[i].Mitigated || _levels[i].IsSupport != isSupport) continue;
+                activeCount++;
+                if (_levels[i].StartBar < oldestBar)
+                {
+                    oldestBar = _levels[i].StartBar;
+                    oldestIdx = i;
+                }
             }
-            if (count >= MaxHistory && oldestIdx >= 0)
+            if (activeCount >= MaxHistory && oldestIdx >= 0)
             {
                 RemoveDrawObject(_levels[oldestIdx].Tag);
                 RemoveDrawObject(_levels[oldestIdx].LblTag);
                 _levels.RemoveAt(oldestIdx);
             }
 
-            // Overlap handling
-            for (int i = _levels.Count - 1; i >= 0; i--)
-            {
-                var l = _levels[i];
-                if (l.Mitigated || l.IsSupport != isSupport) continue;
-                bool overlaps = Math.Max(bot, l.Bot) < Math.Min(top, l.Top);
-                if (!overlaps) continue;
-
-                switch (OverlapHandling)
-                {
-                    case SrOverlapMode.HideOldest:
-                        RemoveDrawObject(l.Tag); RemoveDrawObject(l.LblTag);
-                        _levels.RemoveAt(i);
-                        break;
-                    case SrOverlapMode.HideYoungest:
-                        return;
-                    case SrOverlapMode.MergeOverlapping:
-                        var merged = l;
-                        merged.Top = Math.Max(l.Top, top);
-                        merged.Bot = Math.Min(l.Bot, bot);
-                        _levels[i] = merged;
-                        RedrawLevel(merged);
-                        return;
-                }
-            }
-
             string tag    = (isSupport ? "SR_S_" : "SR_R_") + CurrentBar;
             string lblTag = tag + "_lbl";
-            _levels.Insert(0, new SRZone
+            var z = new SRZone
             {
-                Top = top, Bot = bot, Base = basePrice, IsSupport = isSupport,
+                Top = top, Bot = bot, Base = basePrice,
+                IsSupport = isSupport, Mitigated = false, Hidden = false,
                 Strength = 1, Sweeps = 0, StartBar = CurrentBar,
                 Tag = tag, LblTag = lblTag
-            });
-            RedrawLevel(_levels[0]);
+            };
+            _levels.Add(z);
+            RedrawZone(z);
         }
 
-        private void RedrawLevel(SRZone lvl)
+        // ── Draw zone rectangle / line ─────────────────────────────────────────
+        private void RedrawZone(SRZone z)
         {
-            Brush c = lvl.IsSupport ? SupportColor : ResistColor;
+            if (z.Hidden || z.Mitigated) return;
+            Brush c   = z.IsSupport ? SupportColor : ResistColor;
+            int   ago = CurrentBar - z.StartBar;  // bars since detection (anchors left edge)
+
             if (DisplayType == SrDisplayType.Zones)
-                Draw.Rectangle(this, lvl.Tag, false, 0, lvl.Top, -30, lvl.Bot, c, c, 0);
+            {
+                // Extend rectangle: left edge at detection bar, right edge 300 bars into future
+                Draw.Rectangle(this, z.Tag, false, ago, z.Top, -300, z.Bot, c, c, ZoneOpacity);
+            }
             else
-                Draw.HorizontalLine(this, lvl.Tag, lvl.Base, c, DashStyleHelper.Solid, 1);
+            {
+                Draw.HorizontalLine(this, z.Tag, z.Base, c, DashStyleHelper.Solid, 2);
+            }
 
             if (ShowLabels)
             {
-                string lbl = string.Format("{0} S:{1} Sw:{2}",
-                    lvl.IsSupport ? "SUP" : "RES", lvl.Strength, lvl.Sweeps);
-                Draw.Text(this, lvl.LblTag, true, lbl,
-                    0, lvl.IsSupport ? lvl.Bot - TickSize * 3 : lvl.Top + TickSize * 3, 0,
-                    c, new SimpleFont("Arial", 7), TextAlignment.Right,
+                string lbl = string.Format("{0}  S:{1}  Sw:{2}",
+                    z.IsSupport ? "SUP" : "RES", z.Strength, z.Sweeps);
+                double yLbl = z.IsSupport ? z.Bot - TickSize * 4 : z.Top + TickSize * 4;
+                Draw.Text(this, z.LblTag, true, lbl, 0, yLbl, 0,
+                    c, new SimpleFont("Arial", 8), TextAlignment.Left,
                     Brushes.Transparent, Brushes.Transparent, 0);
             }
         }
 
+        // ── Visibility control: hide extras, reveal if now in range ───────────
         private void EnforceVisibility()
         {
-            int aboveCount = 0, belowCount = 0;
-            for (int i = 0; i < _levels.Count; i++)
+            // Sort active non-mitigated zones relative to current price
+            int above = 0, below = 0;
+            // Iterate from newest to oldest (list appends at end → reverse)
+            for (int i = _levels.Count - 1; i >= 0; i--)
             {
-                var lvl = _levels[i];
-                if (lvl.Mitigated) continue;
-                bool above = lvl.Bot > Close[0];
-                bool below = lvl.Top < Close[0];
-                if (above) { aboveCount++; if (aboveCount > VisibleAbove) { RemoveDrawObject(lvl.Tag); RemoveDrawObject(lvl.LblTag); } }
-                if (below) { belowCount++; if (belowCount > VisibleBelow) { RemoveDrawObject(lvl.Tag); RemoveDrawObject(lvl.LblTag); } }
+                SRZone z = _levels[i];
+                if (z.Mitigated) continue;
+
+                bool isAbove = z.Bot > Close[0];
+                bool isBelow = z.Top < Close[0];
+                bool shouldHide = false;
+
+                if (isAbove)  { above++; if (above  > VisibleAbove) shouldHide = true; }
+                if (isBelow)  { below++; if (below  > VisibleBelow) shouldHide = true; }
+
+                if (shouldHide && !z.Hidden)
+                {
+                    z.Hidden = true; _levels[i] = z;
+                    RemoveDrawObject(z.Tag); RemoveDrawObject(z.LblTag);
+                }
+                else if (!shouldHide && z.Hidden)
+                {
+                    z.Hidden = false; _levels[i] = z;
+                    RedrawZone(_levels[i]);
+                }
             }
         }
 
+        // ── Properties ────────────────────────────────────────────────────────
         #region Properties
 
         [NinjaScriptProperty]
@@ -297,8 +345,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         public SrDetectionMethod DetectionMethod { get; set; }
 
         [NinjaScriptProperty]
-        [Range(1, 100)]
-        [Display(Name = "Swing Sensitivity", Order = 2, GroupName = "Support & Resistance")]
+        [Range(2, 50)]
+        [Display(Name = "Swing Sensitivity (bars)", Order = 2, GroupName = "Support & Resistance")]
         public double SwingSensitivity { get; set; }
 
         [NinjaScriptProperty]
@@ -306,62 +354,65 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         public SrDisplayType DisplayType { get; set; }
 
         [NinjaScriptProperty]
-        [Range(0.0, 5.0)]
-        [Display(Name = "Zone Depth (ATR mult)", Order = 4, GroupName = "Support & Resistance")]
+        [Range(0.1, 5.0)]
+        [Display(Name = "Zone Depth (× ATR)", Order = 4, GroupName = "Support & Resistance")]
         public double ZoneDepthAtr { get; set; }
 
         [NinjaScriptProperty]
         [Range(0.0, 2.0)]
-        [Display(Name = "Breakout Buffer (ATR mult)", Order = 5, GroupName = "Support & Resistance")]
+        [Display(Name = "Breakout Buffer (× ATR)", Order = 5, GroupName = "Support & Resistance")]
         public double BreakoutBuffer { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Overlap Handling", Order = 6, GroupName = "Support & Resistance")]
+        [Range(1, 60)]
+        [Display(Name = "Zone Fill Opacity %", Order = 6, GroupName = "Support & Resistance")]
+        public int ZoneOpacity { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Overlap Handling", Order = 7, GroupName = "Support & Resistance")]
         public SrOverlapMode OverlapHandling { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 30)]
-        [Display(Name = "S/R History", Order = 7, GroupName = "Support & Resistance")]
+        [Display(Name = "Max S/R History", Order = 8, GroupName = "Support & Resistance")]
         public int MaxHistory { get; set; }
 
         [NinjaScriptProperty]
-        [Range(0, 30)]
-        [Display(Name = "Visible Above Price", Order = 8, GroupName = "Support & Resistance")]
+        [Range(0, 20)]
+        [Display(Name = "Visible Zones Above", Order = 9, GroupName = "Support & Resistance")]
         public int VisibleAbove { get; set; }
 
         [NinjaScriptProperty]
-        [Range(0, 30)]
-        [Display(Name = "Visible Below Price", Order = 9, GroupName = "Support & Resistance")]
+        [Range(0, 20)]
+        [Display(Name = "Visible Zones Below", Order = 10, GroupName = "Support & Resistance")]
         public int VisibleBelow { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Show Labels", Order = 10, GroupName = "Support & Resistance")]
+        [Display(Name = "Show Labels", Order = 11, GroupName = "Support & Resistance")]
         public bool ShowLabels { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Show Break Lines", Order = 11, GroupName = "Support & Resistance")]
+        [Display(Name = "Show Break Lines", Order = 12, GroupName = "Support & Resistance")]
         public bool ShowBreakLines { get; set; }
 
         [XmlIgnore]
-        [Display(Name = "Resistance Color", Order = 12, GroupName = "Support & Resistance")]
+        [Display(Name = "Resistance Color", Order = 13, GroupName = "Support & Resistance")]
         public Brush ResistColor { get; set; }
-
         [Browsable(false)]
         public string ResistColorSerializable
         {
-            get { return Serialize.BrushToString(ResistColor); }
-            set { ResistColor = Serialize.StringToBrush(value); }
+            get => Serialize.BrushToString(ResistColor);
+            set => ResistColor = Serialize.StringToBrush(value);
         }
 
         [XmlIgnore]
-        [Display(Name = "Support Color", Order = 13, GroupName = "Support & Resistance")]
+        [Display(Name = "Support Color", Order = 14, GroupName = "Support & Resistance")]
         public Brush SupportColor { get; set; }
-
         [Browsable(false)]
         public string SupportColorSerializable
         {
-            get { return Serialize.BrushToString(SupportColor); }
-            set { SupportColor = Serialize.StringToBrush(value); }
+            get => Serialize.BrushToString(SupportColor);
+            set => SupportColor = Serialize.StringToBrush(value);
         }
 
         #endregion

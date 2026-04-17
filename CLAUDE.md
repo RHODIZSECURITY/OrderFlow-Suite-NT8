@@ -2,7 +2,7 @@
 
 ## Contexto General
 - **Proyecto**: NinjaTrader 8 C# indicators — suite profesional de Order Flow, Smart Money Concepts y análisis de volumen
-- **Versión actual**: 1.4.0
+- **Versión actual**: 1.5.0
 - **Namespace**: `NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ`
 - **CI/CD**: Push a `main` → GitHub Actions genera ZIP versionado → crea Release en GitHub automáticamente
 - **Rama de trabajo**: `main` — nunca crear feature branches permanentes
@@ -110,13 +110,25 @@
 | `HeatMapFlow.cs` | `OnMarketDepth/OnMarketData` sin try-catch ni null-check completo | `try/catch` + guards de `bookMap/orderBookLadder/wyckoffBars/marketOrderLadder` |
 | `VolumeProfile.cs` | Delta aproximado con `Close>=Open` aun con OrderFlow+ | Detección `VolumetricBarsType` → `BuyingVolume/SellingVolume` real; fallback a estimación |
 | `OrderFlowSignals.cs` | `Draw.Dot` fixed-size, sin formas configurables, sin delta en burbuja | Reescrito: SharpDX circles + diamonds + 4 signal shapes + delta text |
+| `SupportResistance.cs` | `areaOpacity = 0` — zonas completamente invisibles | `ZoneOpacity` property (default 20) |
+| `SupportResistance.cs` | `barsAgo = 0` en `Draw.Rectangle` — zona no ancla en barra de detección | `ago = CurrentBar - z.StartBar` |
+| `SupportResistance.cs` | `EnforceVisibility` vs `RedrawZone` fighting — zonas ocultas se redibujaban | Campo `Hidden` en `SRZone` struct; `RedrawZone` omite si `Hidden \|\| Mitigated` |
+| `SupportResistance.cs` | `oldestIdx` apuntaba a zona más reciente, no la más antigua | Comparación de `StartBar` corregida: busca mínimo `StartBar` |
 
 ---
 
 ## OrderFlow+ (suscripción NinjaTrader)
-- **VolumeProfile** detecta `BarsArray[0].BarsType as VolumetricBarsType` y usa `Volumes[i].BuyingVolume/SellingVolume` para delta real bid/ask cuando el usuario añade barras volumétricas al chart.
-- Fallback automático a `Close>=Open ? Volume : 0` si no hay volumetric bars → nunca crashea, nunca requiere OrderFlow+.
-- Helper: `EnsureVolumetricProbe()` (lazy, una sola vez) + `GetBarDelta(out upVol, out dnVol)` (silencioso ante excepciones).
+- **VolumeProfile** usa estimación `Close>=Open ? Volume : 0` para delta (fallback universal).
+- NT8's `VolumetricData` es ensamblado interno — no expone `BuyingVolume/SellingVolume` vía NinjaScript SDK público. Intentos de acceso generan CS1061 en compilación.
+- Fallback a estimación nunca crashea y funciona en todas las cuentas.
+
+### SupportResistance.cs — Arquitectura (v1.5.0)
+- **Métodos de detección**: `Pivots` (default, strict `>/<`), `Donchian`, `CSID`
+- **`SRZone` struct**: `Tag, StartBar, Top, Bot, Base, IsSupport, Mitigated, Hidden, RetestCount`
+- **`RedrawZone`**: ancla borde izquierdo con `ago = CurrentBar - z.StartBar`; extiende derecho con `-300`; omite si `Hidden || Mitigated`
+- **`EnforceVisibility`**: solo setea/limpia flag `Hidden` — no pelea con RedrawZone
+- **`ZoneOpacity`** property (1–100, default 20) — controla opacidad del fill
+- **`HandleStructure`**: evict por `StartBar` mínimo (más antiguo), no máximo
 
 ---
 
