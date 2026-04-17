@@ -637,8 +637,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 			{
 				if( orderType == VolumeAnalysis.OrderType.Ask ){
 					if( this.filterBigPendingOrders != 0 && volume >= this.filterBigPendingOrders ){
-						//Target.FillRectangle(genRect, brushBigPendingOrdersColor.ToDxBrush(Target, (float)(Math2.Percent(this.filterBigPendingOrders*10, volume) / 100.0f)));
-						myFillRectangle(ref genRect, colorBigPendingOrdersColor, (float)((volume / this.filterBigPendingOrders)*bigPendingOrdersOpacity));
+						float op = Math.Min(1f, (float)((double)volume / this.filterBigPendingOrders) * bigPendingOrdersOpacity);
+						myFillRectangle(ref genRect, colorBigPendingOrdersColor, op);
 					}
 					else{
 						myFillRectangle(ref genRect, colorAskPendingOrdersColor, orderOpacity);
@@ -650,7 +650,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 				}
 				else if( orderType == VolumeAnalysis.OrderType.Bid ){
 					if( this.filterBigPendingOrders != 0 && volume >= this.filterBigPendingOrders ){
-						myFillRectangle(ref genRect, colorBigPendingOrdersColor, (float)((volume / this.filterBigPendingOrders)*bigPendingOrdersOpacity));
+						float op = Math.Min(1f, (float)((double)volume / this.filterBigPendingOrders) * bigPendingOrdersOpacity);
+						myFillRectangle(ref genRect, colorBigPendingOrdersColor, op);
 					}
 					else{
 						myFillRectangle(ref genRect, colorBidPendingOrdersColor, orderOpacity);
@@ -991,6 +992,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 			{
 				int ladderRange = this.getLadderRange(_LadderRange);
 				
+				marketOrderLadder = new VolumeAnalysis.PriceLadder();
 				bookMap = new VolumeAnalysis.BookMap(Bars);
 				// !- nivel maximo de la escalera de precios
 				bookMap.setLadderRange(ladderRange);

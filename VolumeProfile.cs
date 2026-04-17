@@ -114,6 +114,16 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     _sortedLevels[key] = Volume[0];
                 _totalSessionVol += Volume[0];
 
+                // Cap Running mode to prevent unbounded memory growth
+                if (VpProfileMode == ProfileMode.Running && _sortedLevels.Count > 5000)
+                {
+                    int minIdx = 0;
+                    for (int i = 1; i < _sortedLevels.Count; i++)
+                        if (_sortedLevels.Values[i] < _sortedLevels.Values[minIdx]) minIdx = i;
+                    _totalSessionVol -= _sortedLevels.Values[minIdx];  // keep denominator consistent
+                    _sortedLevels.RemoveAt(minIdx);
+                }
+
                 CalculatePocValueArea();
             }
         }

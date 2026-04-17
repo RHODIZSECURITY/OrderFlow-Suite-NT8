@@ -155,8 +155,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             bool absorbed = highVol && move < atrSafe * AbsorptionAtrFactor;
             if (!absorbed) return;
 
-            bool bull = Close[0] >= Open[0] || Low[0] == Low[1];
-            bool bear = Close[0] <  Open[0] || High[0] == High[1];
+            bool bull = Close[0] >= Open[0];
+            bool bear = Close[0] <  Open[0];
 
             _absUp   = bull && AbsDir != AbsorptionDirection.BearOnly;
             _absDown = bear && AbsDir != AbsorptionDirection.BullOnly;
@@ -205,8 +205,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
         private void DetectLvn(double atrSafe)
         {
-            if (CurrentBar < 5) return;
-            double avgRange = ATR(5)[0];
+            if (CurrentBar < 10) return;
+            double avgRange = Math.Max(TickSize, ATR(5)[0]);
             double range    = High[0] - Low[0];
 
             bool lvnSeed = Volume[0] < _avgVol * 0.5

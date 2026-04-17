@@ -1,5 +1,6 @@
 #region Using declarations
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Windows.Media;
@@ -46,6 +47,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         private double _orbHigh;
         private double _orbLow;
         private DateTime _orbEndTime;
+
+        private readonly Queue<string> _orbSignalTags = new Queue<string>();
+        private const int MaxOrbSignals = 200;
 
         private bool _gapUp;
         private bool _gapDown;
@@ -134,6 +138,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 _sessionDate = Core.Globals.MinDate;
                 _pmVwapFinal = double.NaN;
                 _sessSumVT2  = 0;
+                _orbSignalTags.Clear();
             }
         }
 
@@ -230,13 +235,13 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     {
                         _orbBrokenUp = true;
                         if (_showLabels)
-                            Draw.Text(this, $"LS_ORB_BU_{CurrentBar}", "① Break↑", 0, High[0] + 2 * TickSize, _orbHighColor);
+                            DrawOrbSignalText($"LS_ORB_BU_{CurrentBar}", "① Break↑", 0, High[0] + 2 * TickSize, _orbHighColor);
                     }
                     if (breakDown)
                     {
                         _orbBrokenDown = true;
                         if (_showLabels)
-                            Draw.Text(this, $"LS_ORB_BD_{CurrentBar}", "① Break↓", 0, Low[0] - 2 * TickSize, _orbLowColor);
+                            DrawOrbSignalText($"LS_ORB_BD_{CurrentBar}", "① Break↓", 0, Low[0] - 2 * TickSize, _orbLowColor);
                     }
                 }
 
@@ -248,13 +253,13 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     {
                         _orbBrokenDown = true;
                         if (_showLabels)
-                            Draw.Text(this, $"LS_ORB_TS_{CurrentBar}", "② Trap↓", 0, High[0] + 2 * TickSize, _orbLowColor);
+                            DrawOrbSignalText($"LS_ORB_TS_{CurrentBar}", "② Trap↓", 0, High[0] + 2 * TickSize, _orbLowColor);
                     }
                     if (brokeBelow && Close[0] > _orbLow && !_orbBrokenUp)
                     {
                         _orbBrokenUp = true;
                         if (_showLabels)
-                            Draw.Text(this, $"LS_ORB_TL_{CurrentBar}", "② Trap↑", 0, Low[0] - 2 * TickSize, _orbHighColor);
+                            DrawOrbSignalText($"LS_ORB_TL_{CurrentBar}", "② Trap↑", 0, Low[0] - 2 * TickSize, _orbHighColor);
                     }
                 }
 
@@ -262,9 +267,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 {
                     double mid = (High[0] + Low[0]) * 0.5;
                     if (High[0] > _orbHigh && Close[0] < mid && Close[0] < _orbHigh)
-                        Draw.Diamond(this, $"LS_ORB_RS_{CurrentBar}", false, 0, High[0] + TickSize * 4, _orbLowColor);
+                        DrawOrbSignalDiamond($"LS_ORB_RS_{CurrentBar}", 0, High[0] + TickSize * 4, _orbLowColor);
                     if (Low[0] < _orbLow && Close[0] > mid && Close[0] > _orbLow)
-                        Draw.Diamond(this, $"LS_ORB_RL_{CurrentBar}", false, 0, Low[0] - TickSize * 4, _orbHighColor);
+                        DrawOrbSignalDiamond($"LS_ORB_RL_{CurrentBar}", 0, Low[0] - TickSize * 4, _orbHighColor);
                 }
             }
         }
@@ -433,6 +438,20 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 if (_showGapLine)
                     Draw.HorizontalLine(this, "LS_GAP", _gapLine, _gapFilled ? _gapFilledColor : (_gapUp ? _gapUpColor : _gapDownColor));
             }
+        }
+
+        private void DrawOrbSignalText(string tag, string text, int barsAgo, double price, Brush color)
+        {
+            Draw.Text(this, tag, text, barsAgo, price, color);
+            _orbSignalTags.Enqueue(tag);
+            if (_orbSignalTags.Count > MaxOrbSignals) RemoveDrawObject(_orbSignalTags.Dequeue());
+        }
+
+        private void DrawOrbSignalDiamond(string tag, int barsAgo, double price, Brush color)
+        {
+            Draw.Diamond(this, tag, false, barsAgo, price, color);
+            _orbSignalTags.Enqueue(tag);
+            if (_orbSignalTags.Count > MaxOrbSignals) RemoveDrawObject(_orbSignalTags.Dequeue());
         }
 
         private bool IsNYCash(DateTime t)
