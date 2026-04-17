@@ -1,8 +1,7 @@
 // Support & Resistance Zone Detection
-// Detection methods: Pivots / Donchian / CSID
-// Zones: ATR-depth rectangles anchored at detection bar, extending right
-// Mitigation: close beyond zone → dashed break line
-// Overlap: None / Merge / Hide
+// Logic ported from Pine Script reference (ta.pivothigh / ta.pivotlow equivalent)
+// Pivots: asymmetric comparison — right (newer) strict, left (older) lenient (ties OK)
+// Zone left edge anchored at actual pivot bar (CurrentBar - len), right edge extends to current bar
 
 #region Using declarations
 using System;
@@ -11,7 +10,6 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Windows.Media;
 using System.Xml.Serialization;
-using System.Windows;
 using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
 using NinjaTrader.Gui.Tools;
@@ -32,12 +30,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             public double Top, Bot, Base;
             public bool   IsSupport;
             public bool   Mitigated;
-            public bool   Hidden;        // hidden by visibility enforcement
-            public int    Strength;      // retest count
+            public bool   Hidden;
+            public int    Strength;
             public int    Sweeps;
-            public int    StartBar;
+            public int    StartBar;   // actual pivot bar index
             public string Tag, LblTag;
-            public bool   InZone;        // price was inside zone last bar
+            public bool   InZone;
         }
 
         private readonly List<SRZone> _levels = new List<SRZone>();
@@ -58,7 +56,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 IsSuspendedWhileInactive = true;
 
                 DetectionMethod  = SrDetectionMethod.Pivots;
-                SwingSensitivity = 5;
+                SwingSensitivity = 3;
                 DisplayType      = SrDisplayType.Zones;
                 ZoneDepthAtr     = 0.5;
                 BreakoutBuffer   = 0.1;
@@ -82,96 +80,97 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
         protected override void OnBarUpdate()
         {
-            if (CurrentBar < (int)SwingSensitivity * 2 + 4) return;
-
-            double atr      = ATR(14)[0];
-            if (atr <= 0) return;
-            double zDepth   = atr * ZoneDepthAtr;
-            double breakBuf = atr * BreakoutBuffer;
-            int    len      = Math.Max(2, (int)SwingSensitivity);
-
-            // ── Detect new pivot highs / lows ─────────────────────────────────
-            double detPH = double.NaN, detPL = double.NaN;
-
-            switch (DetectionMethod)
+            try
             {
-                case SrDetectionMethod.Pivots:
-                    detPH = DetectPivotHigh(len);
-                    detPL = DetectPivotLow(len);
-                    break;
+                int len = Math.Max(2, (int)SwingSensitivity);
+                if (CurrentBar < len * 2 + 4) return;
 
-                case SrDetectionMethod.Donchian:
-                    DonchianDetect(len, out detPH, out detPL);
-                    break;
+                double atr = ATR(14)[0];
+                if (atr <= 0 || double.IsNaN(atr)) return;
 
-                case SrDetectionMethod.CSID:
-                    _bullCount = Close[0] > Open[0] ? _bullCount + 1 : 0;
-                    _bearCount = Close[0] < Open[0] ? _bearCount + 1 : 0;
-                    if (_bullCount == len) detPH = MAX(High, len)[0];
-                    if (_bearCount == len) detPL = MIN(Low,  len)[0];
-                    break;
-            }
+                double zDepth   = atr * ZoneDepthAtr;
+                double breakBuf = atr * BreakoutBuffer;
 
-            if (!double.IsNaN(detPH))
-                AddZone(detPH + breakBuf, detPH - zDepth, detPH, false);
-            if (!double.IsNaN(detPL))
-                AddZone(detPL + zDepth, detPL - breakBuf, detPL, true);
+                // ── Detect new levels ────────────────────────────────────────────
+                double detPH = double.NaN, detPL = double.NaN;
+                int pivotOffset = 0;
 
-            // ── Update existing zones (mitigation, retests, sweeps) ───────────
-            for (int i = _levels.Count - 1; i >= 0; i--)
-            {
-                SRZone z = _levels[i];
-                if (z.Mitigated) continue;
-
-                // Mitigation: close breaks cleanly through zone
-                bool broken = z.IsSupport ? Close[0] < z.Bot : Close[0] > z.Top;
-                if (broken)
+                switch (DetectionMethod)
                 {
-                    z.Mitigated = true; _levels[i] = z;
-                    RemoveDrawObject(z.Tag);
-                    RemoveDrawObject(z.LblTag);
-                    if (ShowBreakLines)
+                    case SrDetectionMethod.Pivots:
+                        detPH = DetectPivotHigh(len);
+                        detPL = DetectPivotLow(len);
+                        pivotOffset = len;
+                        break;
+
+                    case SrDetectionMethod.Donchian:
+                        DonchianDetect(len, out detPH, out detPL);
+                        break;
+
+                    case SrDetectionMethod.CSID:
+                        _bullCount = Close[0] > Open[0] ? _bullCount + 1 : 0;
+                        _bearCount = Close[0] < Open[0] ? _bearCount + 1 : 0;
+                        if (_bullCount == len) detPH = MAX(High, len)[0];
+                        if (_bearCount == len) detPL = MIN(Low,  len)[0];
+                        break;
+                }
+
+                if (!double.IsNaN(detPH))
+                    AddZone(detPH + breakBuf, detPH - zDepth, detPH, false, pivotOffset);
+                if (!double.IsNaN(detPL))
+                    AddZone(detPL + zDepth, detPL - breakBuf, detPL, true, pivotOffset);
+
+                // ── Update existing zones ────────────────────────────────────────
+                for (int i = _levels.Count - 1; i >= 0; i--)
+                {
+                    SRZone z = _levels[i];
+                    if (z.Mitigated) continue;
+
+                    // Mitigation — Pine: close < btm (support) / close > top (resistance)
+                    bool broken = z.IsSupport ? Close[0] < z.Bot : Close[0] > z.Top;
+                    if (broken)
                     {
-                        Brush bc = z.IsSupport ? SupportColor : ResistColor;
-                        Draw.HorizontalLine(this, z.Tag + "_brk", z.Base, bc, DashStyleHelper.Dash, 1);
+                        z.Mitigated = true; _levels[i] = z;
+                        RemoveDrawObject(z.Tag);
+                        RemoveDrawObject(z.LblTag);
+                        if (ShowBreakLines)
+                        {
+                            Brush bc = z.IsSupport ? SupportColor : ResistColor;
+                            Draw.HorizontalLine(this, z.Tag + "_brk", z.Base, bc, DashStyleHelper.Dash, 1);
+                        }
+                        continue;
                     }
-                    continue;
+
+                    // Sweep — Pine: low < btm AND min(close,open) > btm
+                    bool swept = z.IsSupport
+                        ? Low[0]  < z.Bot && Math.Min(Close[0], Open[0]) > z.Bot
+                        : High[0] > z.Top && Math.Max(Close[0], Open[0]) < z.Top;
+                    if (swept) { z.Sweeps++; _levels[i] = z; }
+
+                    // Retest — Pine: high >= btm AND low <= top
+                    bool inside = High[0] >= z.Bot && Low[0] <= z.Top;
+                    if (inside && !z.InZone) { z.Strength++; z.InZone = true;  _levels[i] = z; }
+                    else if (!inside && z.InZone) { z.InZone = false; _levels[i] = z; }
+
+                    if (!z.Hidden) RedrawZone(_levels[i]);
                 }
 
-                // Liquidity sweep: wick through then close back
-                bool swept = z.IsSupport
-                    ? Low[0]  < z.Bot  && Close[0] > z.Bot
-                    : High[0] > z.Top  && Close[0] < z.Top;
-                if (swept) { z.Sweeps++; _levels[i] = z; }
-
-                // Retest strength: count each fresh visit into zone
-                bool inside = High[0] >= z.Bot && Low[0] <= z.Top;
-                if (inside && !z.InZone)
-                {
-                    z.Strength++; z.InZone = true; _levels[i] = z;
-                }
-                else if (!inside && z.InZone)
-                {
-                    z.InZone = false; _levels[i] = z;
-                }
-
-                if (!z.Hidden) RedrawZone(_levels[i]);
+                EnforceVisibility();
             }
-
-            EnforceVisibility();
+            catch { }
         }
 
-        // ── Pivot detection helpers ───────────────────────────────────────────
+        // ── Pivot detection — matches ta.pivothigh / ta.pivotlow (Pine Script) ──
+        // Right side (newer bars, i < len): strict  — High[i] >= h disqualifies
+        // Left side (older bars, i > len): lenient  — High[i] >  h disqualifies (ties OK)
         private double DetectPivotHigh(int len)
         {
-            // Need len bars on each side confirmed → fires len bars after the pivot
             if (CurrentBar < len * 2 + 1) return double.NaN;
             double h = High[len];
-            for (int i = 0; i <= len * 2; i++)
-            {
-                if (i == len) continue;
+            for (int i = 0; i < len; i++)
                 if (High[i] >= h) return double.NaN;
-            }
+            for (int i = len + 1; i <= len * 2; i++)
+                if (High[i] > h) return double.NaN;
             return h;
         }
 
@@ -179,45 +178,40 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         {
             if (CurrentBar < len * 2 + 1) return double.NaN;
             double l = Low[len];
-            for (int i = 0; i <= len * 2; i++)
-            {
-                if (i == len) continue;
+            for (int i = 0; i < len; i++)
                 if (Low[i] <= l) return double.NaN;
-            }
+            for (int i = len + 1; i <= len * 2; i++)
+                if (Low[i] < l) return double.NaN;
             return l;
         }
 
         private void DonchianDetect(int len, out double detPH, out double detPL)
         {
             detPH = double.NaN; detPL = double.NaN;
+            if (CurrentBar <= len) return;
             double dHigh = MAX(High, len)[0];
             double dLow  = MIN(Low,  len)[0];
 
-            // Direction: 1 = up (new highest high), -1 = down (new lowest low)
-            int prev = CurrentBar > len ? (MAX(High, len)[1] < dHigh ? 1 :
-                                           MIN(Low,  len)[1] > dLow  ? -1 : _donchOs)
-                                        : _donchOs;
+            int newDir = MAX(High, len)[1] < dHigh ? 1 :
+                         MIN(Low,  len)[1] > dLow  ? -1 : _donchOs;
 
-            if (prev != _donchOs && prev != 0)
+            if (newDir != _donchOs && newDir != 0)
             {
-                // Direction flip: previous extreme becomes a level
-                if (prev ==  1 && !double.IsNaN(_donchVal)) detPL = _donchVal;
-                if (prev == -1 && !double.IsNaN(_donchVal)) detPH = _donchVal;
-                _donchVal = prev == 1 ? dHigh : dLow;
+                if (newDir ==  1 && !double.IsNaN(_donchVal)) detPL = _donchVal;
+                if (newDir == -1 && !double.IsNaN(_donchVal)) detPH = _donchVal;
+                _donchVal = newDir == 1 ? dHigh : dLow;
+                _donchOs  = newDir;
             }
             else
             {
-                // Extend extreme in current direction
-                if (_donchOs ==  1 && dHigh > _donchVal) _donchVal = dHigh;
-                if (_donchOs == -1 && dLow  < _donchVal) _donchVal = dLow;
+                if (_donchOs ==  1 && dHigh >= _donchVal) _donchVal = dHigh;
+                if (_donchOs == -1 && dLow  <= _donchVal) _donchVal = dLow;
             }
-            _donchOs = prev == 0 ? _donchOs : prev;
         }
 
-        // ── Add / merge zone ──────────────────────────────────────────────────
-        private void AddZone(double top, double bot, double basePrice, bool isSupport)
+        // ── Add zone ─────────────────────────────────────────────────────────────
+        private void AddZone(double top, double bot, double basePrice, bool isSupport, int pivotOffset)
         {
-            // Overlap handling
             for (int i = _levels.Count - 1; i >= 0; i--)
             {
                 SRZone ex = _levels[i];
@@ -228,7 +222,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 switch (OverlapHandling)
                 {
                     case SrOverlapMode.HideYoungest:
-                        return;  // discard incoming
+                        return;
 
                     case SrOverlapMode.HideOldest:
                         RemoveDrawObject(ex.Tag); RemoveDrawObject(ex.LblTag);
@@ -245,18 +239,13 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 }
             }
 
-            // Enforce max history: remove the OLDEST active zone of same type
-            int activeCount = 0;
-            int oldestBar = int.MaxValue, oldestIdx = -1;
+            // Evict oldest active zone of same type when at capacity
+            int activeCount = 0, oldestBar = int.MaxValue, oldestIdx = -1;
             for (int i = 0; i < _levels.Count; i++)
             {
                 if (_levels[i].Mitigated || _levels[i].IsSupport != isSupport) continue;
                 activeCount++;
-                if (_levels[i].StartBar < oldestBar)
-                {
-                    oldestBar = _levels[i].StartBar;
-                    oldestIdx = i;
-                }
+                if (_levels[i].StartBar < oldestBar) { oldestBar = _levels[i].StartBar; oldestIdx = i; }
             }
             if (activeCount >= MaxHistory && oldestIdx >= 0)
             {
@@ -265,30 +254,31 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 _levels.RemoveAt(oldestIdx);
             }
 
-            string tag    = (isSupport ? "SR_S_" : "SR_R_") + CurrentBar;
-            string lblTag = tag + "_lbl";
+            string tag  = (isSupport ? "SR_S_" : "SR_R_") + CurrentBar;
             var z = new SRZone
             {
                 Top = top, Bot = bot, Base = basePrice,
                 IsSupport = isSupport, Mitigated = false, Hidden = false,
-                Strength = 1, Sweeps = 0, StartBar = CurrentBar,
-                Tag = tag, LblTag = lblTag
+                Strength = 1, Sweeps = 0,
+                StartBar = CurrentBar - pivotOffset,   // actual pivot bar
+                Tag = tag, LblTag = tag + "_lbl"
             };
             _levels.Add(z);
             RedrawZone(z);
         }
 
-        // ── Draw zone rectangle / line ─────────────────────────────────────────
+        // ── Draw rectangle from pivot bar to current bar ──────────────────────────
         private void RedrawZone(SRZone z)
         {
             if (z.Hidden || z.Mitigated) return;
             Brush c   = z.IsSupport ? SupportColor : ResistColor;
-            int   ago = CurrentBar - z.StartBar;  // bars since detection (anchors left edge)
+            int   ago = Math.Max(0, Math.Min(CurrentBar - z.StartBar, 4000));
 
             if (DisplayType == SrDisplayType.Zones)
             {
-                // Extend rectangle: left edge at detection bar, right edge 300 bars into future
-                Draw.Rectangle(this, z.Tag, false, ago, z.Top, -300, z.Bot, c, c, ZoneOpacity);
+                // barsAgo=ago (left edge at pivot bar), barsAgo2=0 (right edge at current bar)
+                // Redrawn every bar so right edge advances with the chart (equivalent to extend.right)
+                Draw.Rectangle(this, z.Tag, false, ago, z.Top, 0, z.Bot, c, c, ZoneOpacity);
             }
             else
             {
@@ -297,32 +287,29 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
             if (ShowLabels)
             {
-                string lbl = string.Format("{0}  S:{1}  Sw:{2}",
-                    z.IsSupport ? "SUP" : "RES", z.Strength, z.Sweeps);
+                string lbl  = string.Format("{0}  S:{1}  Sw:{2}", z.IsSupport ? "SUP" : "RES", z.Strength, z.Sweeps);
                 double yLbl = z.IsSupport ? z.Bot - TickSize * 4 : z.Top + TickSize * 4;
                 Draw.Text(this, z.LblTag, true, lbl, 0, yLbl, 0,
-                    c, new SimpleFont("Arial", 8), TextAlignment.Left,
+                    c, new SimpleFont("Arial", 8), System.Windows.TextAlignment.Left,
                     Brushes.Transparent, Brushes.Transparent, 0);
             }
         }
 
-        // ── Visibility control: hide extras, reveal if now in range ───────────
+        // ── Visibility control — Pine Script: isAbove = zoneMid >= close ─────────
         private void EnforceVisibility()
         {
-            // Sort active non-mitigated zones relative to current price
             int above = 0, below = 0;
-            // Iterate from newest to oldest (list appends at end → reverse)
             for (int i = _levels.Count - 1; i >= 0; i--)
             {
                 SRZone z = _levels[i];
                 if (z.Mitigated) continue;
 
-                bool isAbove = z.Bot > Close[0];
-                bool isBelow = z.Top < Close[0];
-                bool shouldHide = false;
+                double mid      = (z.Top + z.Bot) * 0.5;
+                bool   isAbove  = mid >= Close[0];
+                bool   shouldHide;
 
-                if (isAbove)  { above++; if (above  > VisibleAbove) shouldHide = true; }
-                if (isBelow)  { below++; if (below  > VisibleBelow) shouldHide = true; }
+                if (isAbove) { above++; shouldHide = above > VisibleAbove; }
+                else         { below++; shouldHide = below > VisibleBelow; }
 
                 if (shouldHide && !z.Hidden)
                 {
@@ -337,7 +324,6 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             }
         }
 
-        // ── Properties ────────────────────────────────────────────────────────
         #region Properties
 
         [NinjaScriptProperty]
@@ -364,7 +350,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         public double BreakoutBuffer { get; set; }
 
         [NinjaScriptProperty]
-        [Range(1, 60)]
+        [Range(1, 100)]
         [Display(Name = "Zone Fill Opacity %", Order = 6, GroupName = "Support & Resistance")]
         public int ZoneOpacity { get; set; }
 
