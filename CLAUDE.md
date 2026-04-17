@@ -2,7 +2,7 @@
 
 ## Contexto General
 - **Proyecto**: NinjaTrader 8 C# indicators — suite profesional de Order Flow, Smart Money Concepts y análisis de volumen
-- **Versión actual**: 1.3.0
+- **Versión actual**: 1.4.0
 - **Namespace**: `NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ`
 - **CI/CD**: Push a `main` → GitHub Actions genera ZIP versionado → crea Release en GitHub automáticamente
 - **Rama de trabajo**: `main` — nunca crear feature branches permanentes
@@ -18,7 +18,7 @@
 | 3 | `LevelsSuite.cs` | PDH/PDL · NY Pre-Market H/L/VWAP · Session VWAP + **Bandas ±1σ/±2σ** · ORB Pro (Break/Trap/Reversal) · Session Gap · **ICT Kill Zones** (Asia/London/NY AM) | ✅ |
 | 4 | `SmartMoneyConcepts.cs` | FVG Delta (quality filter) + **Mitigation** · Order Blocks + **Invalidation** · **Breaker Blocks** (OB flippeado) · Merge/KeepAll · MaxZones cap | ✅ |
 | 5 | `StructureSuite.cs` | BOS/CHoCH · **Internal Structure (iBOS/iCHoCH)** · Liquidity Sweeps · Premium/Discount · **EQH/EQL** · **Swing Dots** | ✅ |
-| 6 | `OrderFlowSignals.cs` | Big Trades (bid/ask clasificados) · Absorption · Stacked Imbalances · **Triple-A Phase Machine** · LVN Engine | ✅ |
+| 6 | `OrderFlowSignals.cs` | **Big Trades** (SharpDX círculos, radio log-vol, delta opcional) · **Absorption** (SharpDX rombos, radio log-vol) · **Triple-A** Fabio Valentini · **Señales configurables** (Triangle/Arrow/Diamond/Dot) | ✅ |
 | 7 | `HeatMapFlow.cs` | Order book depth heatmap · Bid/Ask imbalance · Large order detection (SharpDX D2D) | ✅ |
 | 8 | `VolumeProfile.cs` | Delta · RelVol · FilteredVol · CumulativeDelta · **POC / VAH / VAL** (value area 70%) | ✅ |
 
@@ -68,10 +68,12 @@
 - BOS/CHoCH externo sobre `SwingStrength` bars
 
 ### OrderFlowSignals.cs
-- **Triple-A Phase Machine** — `None → Absorption → Accumulation → Aggression` con timeout configurable por barra
-- **LVN Engine** — seed (low-vol narrow-range bar) → freshness (60 bars) → retest proximity (ATR × 0.35); guard `CurrentBar < 10`
-- **Big prints clasificados** — `_lastBid`/`_lastAsk` tracked en `OnMarketData`; print al ask = buy (verde), al bid = sell (rojo)
-- **Stacked Imbalances** — contador consecutivo bull/bear; `StackedMinCount` = 2
+- **Big Trades** — `OnMarketData` detecta prints al bid/ask; SharpDX `FillEllipse` con radio log₁₀(vol/BigPrintSize); delta opcional como texto centrado en el círculo (`ShowBubbleDelta`). Thread-safe `Queue<BubblePrint>` cap 500.
+- **Absorption** — barra de alto volumen + rango estrecho (vol > avg×Mult, range < ATR×Factor); SharpDX `PathGeometry` 4 puntos (rombo); radio log proporcional a vol/avg. Queue cap 200.
+- **Triple-A (Fabio Valentini)** — `None → Absorption↑/↓ → Accumulation (inside/tight bar) → Aggression (breakout+vol)`; señales en `Values[0]/[1]` (cross-indicator); renderizado SharpDX en `OnRender` con `SignalMarkerShape` configurable.
+- **Signal shapes** — `Triangle / Arrow / Diamond / Dot`; flecha con tallo (PathGeometry 7 puntos); tamaño en px configurable (`SignalSize`).
+- **DX cache** — `EnsureDxResources(rt)` recrea brushes + `TextFormat` solo si `RenderTarget` cambia; `DisposeDxResources()` en `State.Terminated`.
+- **Eliminados de UI** — Stacked Imbalances, LVN Engine (removidos completamente; no eran necesarios para 3A).
 
 ### VolumeProfile.cs
 - **POC** — `SortedList<long, double>` keyed por `Math.Round(Close/TickSize)`; precio con mayor volumen
@@ -107,6 +109,7 @@
 | `OrderFlowSignals.cs` | `OnMarketData` sin try-catch — malformed tick = crash | `try/catch` silent + null/price guards (dispara ~100x/seg) |
 | `HeatMapFlow.cs` | `OnMarketDepth/OnMarketData` sin try-catch ni null-check completo | `try/catch` + guards de `bookMap/orderBookLadder/wyckoffBars/marketOrderLadder` |
 | `VolumeProfile.cs` | Delta aproximado con `Close>=Open` aun con OrderFlow+ | Detección `VolumetricBarsType` → `BuyingVolume/SellingVolume` real; fallback a estimación |
+| `OrderFlowSignals.cs` | `Draw.Dot` fixed-size, sin formas configurables, sin delta en burbuja | Reescrito: SharpDX circles + diamonds + 4 signal shapes + delta text |
 
 ---
 
