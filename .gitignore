@@ -6,5 +6,5 @@
 /volume_analysis_profile_imgs/
 /volume_filter_imgs/
 
-# TradingView Pine Scripts (kept private, not distributed via repo)
+# Legacy source files (not distributed)
 *.pine
