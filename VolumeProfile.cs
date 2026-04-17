@@ -102,9 +102,10 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     var vol = _volumetricBars.Volumes[CurrentBar];
                     if (vol != null)
                     {
-                        upVol = vol.BuyVolume;
-                        dnVol = vol.SellVolume;
-                        return upVol - dnVol;
+                        double d = vol.Delta;
+                        upVol = Math.Max(0,  d);
+                        dnVol = Math.Max(0, -d);
+                        return d;
                     }
                 }
                 catch { /* fall through to estimate */ }

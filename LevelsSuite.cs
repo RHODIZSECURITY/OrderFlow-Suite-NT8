@@ -430,7 +430,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Draw.HorizontalLine(this, "LS_ORBH", _orbHigh, _orbHighColor);
                 Draw.HorizontalLine(this, "LS_ORBL", _orbLow, _orbLowColor);
                 if (_showFill)
-                    Draw.Region(this, "LS_ORB_FILL", 0, 0, _orbHigh, _orbLow, Brushes.Transparent, Brushes.DodgerBlue, 8);
+                    Draw.Rectangle(this, "LS_ORB_FILL", false, CurrentBar, _orbHigh, 0, _orbLow, Brushes.Transparent, Brushes.DodgerBlue, 8);
             }
 
             if (!double.IsNaN(_gapLine))

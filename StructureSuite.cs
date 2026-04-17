@@ -130,8 +130,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 return;
 
             Draw.HorizontalLine(this, "SS_EQ", eq, Brushes.Gold);
-            Draw.Region(this, "SS_PREMIUM", 0, 0, _lastSwingHigh, eq, Brushes.Transparent, Brushes.IndianRed, ZoneOpacity);
-            Draw.Region(this, "SS_DISCOUNT", 0, 0, eq, _lastSwingLow, Brushes.Transparent, Brushes.LimeGreen, ZoneOpacity);
+            Draw.Rectangle(this, "SS_PREMIUM",  false, CurrentBar, _lastSwingHigh, 0, eq,         Brushes.Transparent, Brushes.IndianRed,  ZoneOpacity);
+            Draw.Rectangle(this, "SS_DISCOUNT", false, CurrentBar, eq,             0, _lastSwingLow, Brushes.Transparent, Brushes.LimeGreen, ZoneOpacity);
         }
 
         private void DetectInternalStructure()
