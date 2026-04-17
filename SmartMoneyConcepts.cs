@@ -17,6 +17,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
     [Gui.CategoryOrder("FVG Delta", 1)]
     [Gui.CategoryOrder("Order Blocks", 2)]
+    [Gui.CategoryOrder("Breaker Blocks", 3)]
     public class SmartMoneyConcepts : Indicator
     {
         private struct Zone
@@ -30,8 +31,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             public string LabelTag;
         }
 
-        private readonly List<Zone> _fvgZones = new List<Zone>();
-        private readonly List<Zone> _obZones = new List<Zone>();
+        private readonly List<Zone> _fvgZones      = new List<Zone>();
+        private readonly List<Zone> _obZones       = new List<Zone>();
+        private readonly List<Zone> _breakerBlocks = new List<Zone>();
         private double _lastFvgTop = double.NaN;
         private double _lastFvgBottom = double.NaN;
         private double _lastObTop = double.NaN;
@@ -64,6 +66,11 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 ShowObLabels = true;
                 ObBullColor = Brushes.DodgerBlue;
                 ObBearColor = Brushes.DarkOrange;
+
+                ShowBreakerBlocks = true;
+                BreakerOpacity    = 18;
+                BreakerBullColor  = Brushes.Teal;
+                BreakerBearColor  = Brushes.Sienna;
             }
         }
 
@@ -180,7 +187,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             }
         }
 
-        // OB invalidated when price closes BEYOND the zone (bull OB: close < bottom; bear OB: close > top)
+        // OB invalidated when price closes BEYOND the zone → flip to Breaker Block
         private void CheckObInvalidation()
         {
             for (int i = 0; i < _obZones.Count; i++)
@@ -195,6 +202,38 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 _obZones[i] = z;
                 RemoveDrawObject(z.DrawTag);
                 if (!string.IsNullOrEmpty(z.LabelTag)) RemoveDrawObject(z.LabelTag);
+
+                if (!ShowBreakerBlocks) continue;
+
+                // Breaker Block = inverted OB that price should return to
+                bool bbBull   = !z.Bull;
+                int  barsBack = CurrentBar - z.StartBar;
+                string bbTag  = $"SMC_BB_{(bbBull ? "B" : "S")}_{z.StartBar}";
+                string bbLbl  = bbTag + "_lbl";
+
+                if (_breakerBlocks.Count >= MaxZones)
+                {
+                    int oldest = 0;
+                    for (int j = 1; j < _breakerBlocks.Count; j++)
+                        if (_breakerBlocks[j].StartBar < _breakerBlocks[oldest].StartBar) oldest = j;
+                    RemoveDrawObject(_breakerBlocks[oldest].DrawTag);
+                    RemoveDrawObject(_breakerBlocks[oldest].LabelTag);
+                    _breakerBlocks.RemoveAt(oldest);
+                }
+
+                _breakerBlocks.Add(new Zone
+                {
+                    StartBar = CurrentBar, Top = z.Top, Bottom = z.Bottom,
+                    Bull = bbBull, DrawTag = bbTag, LabelTag = bbLbl
+                });
+
+                Draw.Rectangle(this, bbTag, false,
+                    barsBack, z.Top, -ObExtendBars, z.Bottom,
+                    bbBull ? BreakerBullColor : BreakerBearColor,
+                    bbBull ? BreakerBullColor : BreakerBearColor, BreakerOpacity);
+                Draw.Text(this, bbLbl, "BB", 0,
+                    (z.Top + z.Bottom) * 0.5,
+                    bbBull ? BreakerBullColor : BreakerBearColor);
             }
         }
 
@@ -280,6 +319,22 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         public Brush ObBearColor { get; set; }
         [Browsable(false)]
         public string ObBearColorSerializable { get => Serialize.BrushToString(ObBearColor); set => ObBearColor = Serialize.StringToBrush(value); }
+
+        [NinjaScriptProperty, Display(Name = "Show Breaker Blocks", GroupName = "Breaker Blocks", Order = 1)]
+        public bool ShowBreakerBlocks { get; set; }
+
+        [NinjaScriptProperty, Range(0, 100), Display(Name = "BB Opacity", GroupName = "Breaker Blocks", Order = 2)]
+        public int BreakerOpacity { get; set; }
+
+        [XmlIgnore, Display(Name = "BB Bull Color", GroupName = "Breaker Blocks", Order = 3)]
+        public Brush BreakerBullColor { get; set; }
+        [Browsable(false)]
+        public string BreakerBullColorSerializable { get => Serialize.BrushToString(BreakerBullColor); set => BreakerBullColor = Serialize.StringToBrush(value); }
+
+        [XmlIgnore, Display(Name = "BB Bear Color", GroupName = "Breaker Blocks", Order = 4)]
+        public Brush BreakerBearColor { get; set; }
+        [Browsable(false)]
+        public string BreakerBearColorSerializable { get => Serialize.BrushToString(BreakerBearColor); set => BreakerBearColor = Serialize.StringToBrush(value); }
 
         [Browsable(false)]
         public int ActiveFvgZoneCount => _fvgZones.Count;

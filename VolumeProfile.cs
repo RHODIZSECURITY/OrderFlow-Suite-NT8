@@ -1,8 +1,10 @@
 #region Using declarations
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Windows.Media;
+using System.Xml.Serialization;
 using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
@@ -10,6 +12,8 @@ using NinjaTrader.NinjaScript;
 
 namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
+    public enum ProfileMode { Session, Running }
+
     [Gui.CategoryOrder("Order Flow", 1)]
     [Gui.CategoryOrder("Market Volume", 2)]
     [Gui.CategoryOrder("Volume Analysis Profile", 3)]
@@ -18,35 +22,49 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
     {
         private double _cumDelta;
 
+        // POC / VAH / VAL
+        private readonly SortedList<long, double> _sortedLevels = new SortedList<long, double>();
+        private double _totalSessionVol;
+        private double _poc = double.NaN;
+        private double _vah = double.NaN;
+        private double _val = double.NaN;
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
             {
-                Name = "VolumeProfile";
-                Description = "TradingView-style consolidated OrderFlow + MarketVolume + VolumeProfile + VolumeFilter.";
-                Calculate = Calculate.OnBarClose;
-                IsOverlay = false;
+                Name        = "VolumeProfile";
+                Description = "TradingView-style OrderFlow + MarketVolume + VolumeProfile (POC/VAH/VAL) + VolumeFilter.";
+                Calculate   = Calculate.OnBarClose;
+                IsOverlay   = false;
                 MaxLookBack = MaximumBarsLookBack.Infinite;
+                DrawOnPricePanel = true;
 
-                ShowOrderFlow = true;
-                ShowMarketVolume = true;
-                ShowProfile = true;
-                ShowVolumeFilter = true;
+                ShowOrderFlow      = true;
+                ShowMarketVolume   = true;
+                ShowProfile        = true;
+                ShowVolumeFilter   = true;
 
-                DeltaLength = 20;
-                MinVolumeFactor = 1.5;
+                DeltaLength        = 20;
+                MinVolumeFactor    = 1.5;
                 UseCumulativeDelta = true;
-                VolumeZScoreLen = 50;
-                ZScoreThreshold = 1.0;
+                VolumeZScoreLen    = 50;
+                ZScoreThreshold    = 1.0;
 
-                AddPlot(new Stroke(Brushes.DodgerBlue, 2), PlotStyle.Bar, "Delta");
+                VpProfileMode      = ProfileMode.Session;
+                ValueAreaPct       = 70;
+                ShowVpLabels       = true;
+
+                AddPlot(new Stroke(Brushes.DodgerBlue,  2), PlotStyle.Bar,  "Delta");
                 AddPlot(new Stroke(Brushes.MediumPurple, 2), PlotStyle.Line, "RelativeVolume");
-                AddPlot(new Stroke(Brushes.DarkOrange, 2), PlotStyle.Line, "FilteredVolume");
-                AddPlot(new Stroke(Brushes.Gold, 2), PlotStyle.Line, "CumulativeDelta");
+                AddPlot(new Stroke(Brushes.DarkOrange,  2), PlotStyle.Line, "FilteredVolume");
+                AddPlot(new Stroke(Brushes.Gold,        2), PlotStyle.Line, "CumulativeDelta");
             }
             else if (State == State.DataLoaded)
             {
-                _cumDelta = 0;
+                _cumDelta        = 0;
+                _totalSessionVol = 0;
+                _sortedLevels.Clear();
             }
         }
 
@@ -59,64 +77,138 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             }
 
             if (Bars.IsFirstBarOfSession)
+            {
                 _cumDelta = 0;
+                if (VpProfileMode == ProfileMode.Session)
+                {
+                    _sortedLevels.Clear();
+                    _totalSessionVol = 0;
+                    _poc = _vah = _val = double.NaN;
+                }
+            }
 
             double upVol = Close[0] >= Open[0] ? Volume[0] : 0;
-            double dnVol = Close[0] < Open[0] ? Volume[0] : 0;
+            double dnVol = Close[0] <  Open[0] ? Volume[0] : 0;
             double delta = upVol - dnVol;
             _cumDelta += delta;
 
             double avgVol = SMA(Volume, DeltaLength)[0];
-            double rv = avgVol > 0 ? Volume[0] / avgVol : 0;
+            double rv     = avgVol > 0 ? Volume[0] / avgVol : 0;
 
             double sigma = StdDev(Volume, VolumeZScoreLen)[0];
-            double mean = SMA(Volume, VolumeZScoreLen)[0];
-            double z = sigma > 0 ? (Volume[0] - mean) / sigma : 0;
-            double fVol = (rv >= MinVolumeFactor && z >= ZScoreThreshold) ? Volume[0] : 0;
+            double mean  = SMA(Volume, VolumeZScoreLen)[0];
+            double z     = sigma > 0 ? (Volume[0] - mean) / sigma : 0;
+            double fVol  = (rv >= MinVolumeFactor && z >= ZScoreThreshold) ? Volume[0] : 0;
 
-            Values[0][0] = ShowOrderFlow ? delta : double.NaN;
+            Values[0][0] = ShowOrderFlow      ? delta   : double.NaN;
             Values[1][0] = ShowMarketVolume || ShowProfile ? rv : double.NaN;
-            Values[2][0] = ShowVolumeFilter ? fVol : double.NaN;
+            Values[2][0] = ShowVolumeFilter   ? fVol    : double.NaN;
             Values[3][0] = (ShowOrderFlow && UseCumulativeDelta) ? _cumDelta : double.NaN;
+
+            if (ShowProfile)
+            {
+                long key = (long)Math.Round(Close[0] / TickSize);
+                if (_sortedLevels.ContainsKey(key))
+                    _sortedLevels[key] += Volume[0];
+                else
+                    _sortedLevels[key] = Volume[0];
+                _totalSessionVol += Volume[0];
+
+                CalculatePocValueArea();
+            }
         }
 
-        [NinjaScriptProperty, Display(Name = "Show Order Flow", GroupName = "Order Flow", Order = 1)]
-        public bool ShowOrderFlow { get; set; }
+        private void CalculatePocValueArea()
+        {
+            if (_sortedLevels.Count == 0 || _totalSessionVol <= 0) return;
 
-        [NinjaScriptProperty, Display(Name = "Show Market Volume", GroupName = "Market Volume", Order = 1)]
-        public bool ShowMarketVolume { get; set; }
+            // POC = price with highest volume
+            long pocKey = 0;
+            double maxVol = double.MinValue;
+            for (int i = 0; i < _sortedLevels.Count; i++)
+            {
+                if (_sortedLevels.Values[i] > maxVol)
+                {
+                    maxVol = _sortedLevels.Values[i];
+                    pocKey = _sortedLevels.Keys[i];
+                }
+            }
+            _poc = pocKey * TickSize;
 
-        [NinjaScriptProperty, Display(Name = "Show Profile", GroupName = "Volume Analysis Profile", Order = 1)]
-        public bool ShowProfile { get; set; }
+            // Value area: expand from POC until ValueAreaPct% of volume is captured
+            double target      = _totalSessionVol * ValueAreaPct / 100.0;
+            double accumulated = maxVol;
+            int pocIdx = _sortedLevels.IndexOfKey(pocKey);
+            int loIdx  = pocIdx;
+            int hiIdx  = pocIdx;
 
-        [NinjaScriptProperty, Display(Name = "Show Volume Filter", GroupName = "Volume Filter", Order = 1)]
-        public bool ShowVolumeFilter { get; set; }
+            while (accumulated < target)
+            {
+                bool canUp   = hiIdx < _sortedLevels.Count - 1;
+                bool canDown = loIdx > 0;
+                if (!canUp && !canDown) break;
 
-        [NinjaScriptProperty, Range(1, 500), Display(Name = "Delta Length", GroupName = "Order Flow", Order = 2)]
-        public int DeltaLength { get; set; }
+                double nextHiVol = canUp   ? _sortedLevels.Values[hiIdx + 1] : 0;
+                double nextLoVol = canDown ? _sortedLevels.Values[loIdx - 1] : 0;
 
-        [NinjaScriptProperty, Display(Name = "Use Cumulative Delta", GroupName = "Order Flow", Order = 3)]
-        public bool UseCumulativeDelta { get; set; }
+                if (canUp && (!canDown || nextHiVol >= nextLoVol))
+                    accumulated += _sortedLevels.Values[++hiIdx];
+                else
+                    accumulated += _sortedLevels.Values[--loIdx];
+            }
 
-        [NinjaScriptProperty, Range(0.1, 20.0), Display(Name = "Min Volume Factor", GroupName = "Volume Filter", Order = 2)]
-        public double MinVolumeFactor { get; set; }
+            _vah = _sortedLevels.Keys[hiIdx] * TickSize;
+            _val = _sortedLevels.Keys[loIdx]  * TickSize;
 
-        [NinjaScriptProperty, Range(5, 500), Display(Name = "Volume ZScore Length", GroupName = "Volume Filter", Order = 3)]
-        public int VolumeZScoreLen { get; set; }
+            // Draw on price panel (DrawOnPricePanel = true in SetDefaults)
+            Draw.HorizontalLine(this, "VP_POC", _poc, PocColor,    DashStyleHelper.Solid, 2);
+            Draw.HorizontalLine(this, "VP_VAH", _vah, VahValColor, DashStyleHelper.Dash,  1);
+            Draw.HorizontalLine(this, "VP_VAL", _val, VahValColor, DashStyleHelper.Dash,  1);
 
-        [NinjaScriptProperty, Range(-5.0, 10.0), Display(Name = "ZScore Threshold", GroupName = "Volume Filter", Order = 4)]
-        public double ZScoreThreshold { get; set; }
+            if (ShowVpLabels)
+            {
+                Draw.Text(this, "VP_POC_LBL", $"POC {_poc:F2}", 0, _poc, PocColor);
+                Draw.Text(this, "VP_VAH_LBL", $"VAH {_vah:F2}", 0, _vah, VahValColor);
+                Draw.Text(this, "VP_VAL_LBL", $"VAL {_val:F2}", 0, _val, VahValColor);
+            }
+        }
 
+        #region Properties
+
+        [NinjaScriptProperty, Display(Name = "Show Order Flow",    GroupName = "Order Flow",            Order = 1)] public bool ShowOrderFlow    { get; set; }
+        [NinjaScriptProperty, Display(Name = "Show Market Volume", GroupName = "Market Volume",          Order = 1)] public bool ShowMarketVolume { get; set; }
+        [NinjaScriptProperty, Display(Name = "Show Profile",       GroupName = "Volume Analysis Profile", Order = 1)] public bool ShowProfile   { get; set; }
+        [NinjaScriptProperty, Display(Name = "Show Volume Filter", GroupName = "Volume Filter",          Order = 1)] public bool ShowVolumeFilter { get; set; }
+
+        [NinjaScriptProperty, Range(1, 500), Display(Name = "Delta Length",       GroupName = "Order Flow",    Order = 2)] public int    DeltaLength        { get; set; }
+        [NinjaScriptProperty,               Display(Name = "Use Cumulative Delta", GroupName = "Order Flow",    Order = 3)] public bool   UseCumulativeDelta { get; set; }
+
+        [NinjaScriptProperty, Range(0.1, 20.0), Display(Name = "Min Volume Factor",   GroupName = "Volume Filter", Order = 2)] public double MinVolumeFactor  { get; set; }
+        [NinjaScriptProperty, Range(5, 500),    Display(Name = "Volume ZScore Length", GroupName = "Volume Filter", Order = 3)] public int    VolumeZScoreLen { get; set; }
+        [NinjaScriptProperty, Range(-5.0, 10.0),Display(Name = "ZScore Threshold",    GroupName = "Volume Filter", Order = 4)] public double ZScoreThreshold { get; set; }
+
+        [NinjaScriptProperty, Display(Name = "Profile Mode",    GroupName = "Volume Analysis Profile", Order = 2)] public ProfileMode VpProfileMode { get; set; }
+        [NinjaScriptProperty, Range(50, 100), Display(Name = "Value Area %", GroupName = "Volume Analysis Profile", Order = 3)] public int ValueAreaPct { get; set; }
+        [NinjaScriptProperty, Display(Name = "Show VP Labels",  GroupName = "Volume Analysis Profile", Order = 4)] public bool ShowVpLabels { get; set; }
+
+        [XmlIgnore, Display(Name = "POC Color",    GroupName = "Volume Analysis Profile", Order = 5)]
+        public Brush PocColor { get; set; } = Brushes.Red;
         [Browsable(false)]
-        public Series<double> Delta => Values[0];
+        public string PocColorSerializable { get => Serialize.BrushToString(PocColor); set => PocColor = Serialize.StringToBrush(value); }
 
+        [XmlIgnore, Display(Name = "VAH/VAL Color", GroupName = "Volume Analysis Profile", Order = 6)]
+        public Brush VahValColor { get; set; } = Brushes.DodgerBlue;
         [Browsable(false)]
-        public Series<double> RelativeVolume => Values[1];
+        public string VahValColorSerializable { get => Serialize.BrushToString(VahValColor); set => VahValColor = Serialize.StringToBrush(value); }
 
-        [Browsable(false)]
-        public Series<double> FilteredVolume => Values[2];
+        [Browsable(false)] public Series<double> Delta          => Values[0];
+        [Browsable(false)] public Series<double> RelativeVolume => Values[1];
+        [Browsable(false)] public Series<double> FilteredVolume => Values[2];
+        [Browsable(false)] public Series<double> CumulativeDelta => Values[3];
+        [Browsable(false)] public double Poc => _poc;
+        [Browsable(false)] public double Vah => _vah;
+        [Browsable(false)] public double Val => _val;
 
-        [Browsable(false)]
-        public Series<double> CumulativeDelta => Values[3];
+        #endregion
     }
 }

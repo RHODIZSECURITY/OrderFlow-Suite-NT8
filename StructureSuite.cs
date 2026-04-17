@@ -41,6 +41,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 ShowSwingDots = true;
                 ShowEqhEql = true;
                 EqTolerance = 3;
+                ShowInternalStructure = false;
+                InternalStrength = 2;
 
                 AddPlot(new Stroke(Brushes.Gold, 2), PlotStyle.Line, "Equilibrium");
             }
@@ -64,6 +66,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             DetectLiquiditySweeps(eq);
             DrawPremiumDiscount(eq);
             DetectPivotsAndEqhEql();
+            DetectInternalStructure();
         }
 
         private void DetectStructure(double eq)
@@ -128,6 +131,27 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             Draw.HorizontalLine(this, "SS_EQ", eq, Brushes.Gold);
             Draw.Region(this, "SS_PREMIUM", 0, 0, _lastSwingHigh, eq, Brushes.Transparent, Brushes.IndianRed, ZoneOpacity);
             Draw.Region(this, "SS_DISCOUNT", 0, 0, eq, _lastSwingLow, Brushes.Transparent, Brushes.LimeGreen, ZoneOpacity);
+        }
+
+        private void DetectInternalStructure()
+        {
+            if (!ShowInternalStructure || CurrentBar < InternalStrength * 2 + 2) return;
+            if (InternalStrength >= SwingStrength) return;  // internal must be smaller than external
+
+            double iHigh = MAX(High, InternalStrength)[1];
+            double iLow  = MIN(Low,  InternalStrength)[1];
+
+            bool iBreakUp   = Close[0] > iHigh;
+            bool iBreakDown = Close[0] < iLow;
+
+            if (iBreakUp && _trend > 0)
+                Draw.Text(this, $"SS_iBOS_U_{CurrentBar}", "iBOS↑", 0, High[0] + TickSize * 2, Brushes.SpringGreen);
+            if (iBreakDown && _trend < 0)
+                Draw.Text(this, $"SS_iBOS_D_{CurrentBar}", "iBOS↓", 0, Low[0] - TickSize * 2, Brushes.Salmon);
+            if (iBreakUp && _trend < 0)
+                Draw.Text(this, $"SS_iCHoCH_U_{CurrentBar}", "iCHoCH↑", 0, High[0] + TickSize * 2, Brushes.Aquamarine);
+            if (iBreakDown && _trend > 0)
+                Draw.Text(this, $"SS_iCHoCH_D_{CurrentBar}", "iCHoCH↓", 0, Low[0] - TickSize * 2, Brushes.Violet);
         }
 
         private bool IsPivotHigh(int barsAgo)
@@ -210,6 +234,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
         [NinjaScriptProperty, Range(1, 20), Display(Name = "EQ Tolerance (ticks)", GroupName = "Market Structure", Order = 6)]
         public int EqTolerance { get; set; }
+
+        [NinjaScriptProperty, Display(Name = "Show Internal Structure (iBOS/iCHoCH)", GroupName = "Market Structure", Order = 7)]
+        public bool ShowInternalStructure { get; set; }
+
+        [NinjaScriptProperty, Range(1, 20), Display(Name = "Internal Strength", GroupName = "Market Structure", Order = 8)]
+        public int InternalStrength { get; set; }
 
         [Browsable(false)]
         public Series<double> Equilibrium => Values[0];

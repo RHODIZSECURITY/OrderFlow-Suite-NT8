@@ -18,6 +18,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
     [Gui.CategoryOrder("Session VWAP", 3)]
     [Gui.CategoryOrder("ORB Pro", 4)]
     [Gui.CategoryOrder("Session Gap", 5)]
+    [Gui.CategoryOrder("Kill Zones", 6)]
     public class LevelsSuite : Indicator
     {
         private double _prevHigh;
@@ -104,6 +105,17 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 _gapDownColor = Brushes.Crimson;
                 _gapFilledColor = Brushes.Gray;
 
+                _showAsiaKz   = true;
+                _showLondonKz = true;
+                _showNyAmKz   = true;
+                _showKzLabels = true;
+                _asiaKzColor   = new SolidColorBrush(Color.FromArgb(200, 100, 181, 246));  // light blue
+                _londonKzColor = new SolidColorBrush(Color.FromArgb(200, 129, 199, 132));  // light green
+                _nyAmKzColor   = new SolidColorBrush(Color.FromArgb(200, 255, 183, 77));   // amber
+                _asiaKzDate = _londonKzDate = _nyAmKzDate = DateTime.MinValue;
+                _asiaKzHigh = _londonKzHigh = _nyAmKzHigh = double.MinValue;
+                _asiaKzLow  = _londonKzLow  = _nyAmKzLow  = double.MaxValue;
+
                 AddPlot(new Stroke(Brushes.Orange, 2), PlotStyle.HLine, "OvernightHigh");
                 AddPlot(new Stroke(Brushes.Orange, 2), PlotStyle.HLine, "OvernightLow");
                 AddPlot(new Stroke(Brushes.MediumPurple, 2), PlotStyle.Line, "OvernightVWAP");
@@ -152,6 +164,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             UpdatePreMarket(inPm, typical);
             UpdateSessionVwapAndOrb(t, nyCash, typical);
             UpdateGap(t, nyCash);
+            UpdateKillZones(t);
             DrawLevels();
 
             Values[0][0] = (_showPMHigh && _pmReady) ? _pmHighFinal : double.NaN;
@@ -278,6 +291,79 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Draw.Text(this, $"LS_GAP_LBL_{_sessionDate:yyyyMMdd}", _gapUp ? "GAP UP" : "GAP DOWN", 0, _gapLine, _gapUp ? _gapUpColor : _gapDownColor);
         }
 
+        private void UpdateKillZones(DateTime t)
+        {
+            TimeSpan ts = t.TimeOfDay;
+
+            // Asia KZ: 20:00–23:59 ET — resets each evening
+            if (_showAsiaKz)
+            {
+                if (ts.Hours >= 20 && t.Date != _asiaKzDate.Date)
+                {
+                    _asiaKzDate = t; _asiaKzHigh = double.MinValue; _asiaKzLow = double.MaxValue;
+                }
+                if (ts.Hours >= 20)
+                {
+                    _asiaKzHigh = Math.Max(_asiaKzHigh, High[0]);
+                    _asiaKzLow  = Math.Min(_asiaKzLow,  Low[0]);
+                }
+                if (_asiaKzDate != DateTime.MinValue && _asiaKzHigh > double.MinValue)
+                {
+                    string d = _asiaKzDate.ToString("yyyyMMdd");
+                    Draw.HorizontalLine(this, $"LS_ASIA_H_{d}", _asiaKzHigh, _asiaKzColor, DashStyleHelper.Dot, 1);
+                    Draw.HorizontalLine(this, $"LS_ASIA_L_{d}", _asiaKzLow,  _asiaKzColor, DashStyleHelper.Dot, 1);
+                    if (_showKzLabels)
+                        Draw.Text(this, $"LS_ASIA_LBL_{d}", "Asia", 0, _asiaKzHigh + TickSize * 3, _asiaKzColor);
+                }
+            }
+
+            // London KZ: 02:00–05:00 ET
+            if (_showLondonKz)
+            {
+                bool inLon = ts.Hours >= 2 && ts.Hours < 5;
+                if (inLon && t.Date != _londonKzDate.Date)
+                {
+                    _londonKzDate = t; _londonKzHigh = double.MinValue; _londonKzLow = double.MaxValue;
+                }
+                if (inLon)
+                {
+                    _londonKzHigh = Math.Max(_londonKzHigh, High[0]);
+                    _londonKzLow  = Math.Min(_londonKzLow,  Low[0]);
+                }
+                if (_londonKzDate != DateTime.MinValue && _londonKzHigh > double.MinValue)
+                {
+                    string d = _londonKzDate.ToString("yyyyMMdd");
+                    Draw.HorizontalLine(this, $"LS_LON_H_{d}", _londonKzHigh, _londonKzColor, DashStyleHelper.Dash, 1);
+                    Draw.HorizontalLine(this, $"LS_LON_L_{d}", _londonKzLow,  _londonKzColor, DashStyleHelper.Dash, 1);
+                    if (_showKzLabels)
+                        Draw.Text(this, $"LS_LON_LBL_{d}", "London", 0, _londonKzHigh + TickSize * 3, _londonKzColor);
+                }
+            }
+
+            // NY AM KZ: 07:00–10:00 ET
+            if (_showNyAmKz)
+            {
+                bool inNy = ts.Hours >= 7 && ts.Hours < 10;
+                if (inNy && t.Date != _nyAmKzDate.Date)
+                {
+                    _nyAmKzDate = t; _nyAmKzHigh = double.MinValue; _nyAmKzLow = double.MaxValue;
+                }
+                if (inNy)
+                {
+                    _nyAmKzHigh = Math.Max(_nyAmKzHigh, High[0]);
+                    _nyAmKzLow  = Math.Min(_nyAmKzLow,  Low[0]);
+                }
+                if (_nyAmKzDate != DateTime.MinValue && _nyAmKzHigh > double.MinValue)
+                {
+                    string d = _nyAmKzDate.ToString("yyyyMMdd");
+                    Draw.HorizontalLine(this, $"LS_NY_H_{d}", _nyAmKzHigh, _nyAmKzColor, DashStyleHelper.Solid, 1);
+                    Draw.HorizontalLine(this, $"LS_NY_L_{d}", _nyAmKzLow,  _nyAmKzColor, DashStyleHelper.Solid, 1);
+                    if (_showKzLabels)
+                        Draw.Text(this, $"LS_NY_LBL_{d}", "NY AM", 0, _nyAmKzHigh + TickSize * 3, _nyAmKzColor);
+                }
+            }
+        }
+
         private void ResetSessionState(DateTime t)
         {
             _sessionDate = t.Date;
@@ -372,6 +458,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         private bool _showGapLine, _showGapLabel;
         private Brush _gapUpColor, _gapDownColor, _gapFilledColor;
 
+        // Kill Zones
+        private bool  _showAsiaKz, _showLondonKz, _showNyAmKz, _showKzLabels;
+        private Brush _asiaKzColor, _londonKzColor, _nyAmKzColor;
+        private double   _asiaKzHigh, _asiaKzLow;
+        private double   _londonKzHigh, _londonKzLow;
+        private double   _nyAmKzHigh, _nyAmKzLow;
+        private DateTime _asiaKzDate, _londonKzDate, _nyAmKzDate;
+
         [NinjaScriptProperty, Display(Name = "ShowPDH", GroupName = "Previous Day Levels", Order = 1)] public bool ShowPDH { get => _showPDH; set => _showPDH = value; }
         [NinjaScriptProperty, Display(Name = "ShowPDL", GroupName = "Previous Day Levels", Order = 2)] public bool ShowPDL { get => _showPDL; set => _showPDL = value; }
         [NinjaScriptProperty, Display(Name = "ShowPDMid", GroupName = "Previous Day Levels", Order = 3)] public bool ShowPDMid { get => _showPDMid; set => _showPDMid = value; }
@@ -408,6 +502,18 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         [NinjaScriptProperty, Range(0.0, 10.0), Display(Name = "GapMinAtr", GroupName = "Session Gap", Order = 1)] public double GapMinAtr { get => _gapMinAtr; set => _gapMinAtr = value; }
         [NinjaScriptProperty, Display(Name = "ShowGapLine", GroupName = "Session Gap", Order = 2)] public bool ShowGapLine { get => _showGapLine; set => _showGapLine = value; }
         [NinjaScriptProperty, Display(Name = "ShowGapLabel", GroupName = "Session Gap", Order = 3)] public bool ShowGapLabel { get => _showGapLabel; set => _showGapLabel = value; }
+
+        [NinjaScriptProperty, Display(Name = "Show Asia KZ (20:00-00:00 ET)", GroupName = "Kill Zones", Order = 1)] public bool ShowAsiaKz { get => _showAsiaKz; set => _showAsiaKz = value; }
+        [NinjaScriptProperty, Display(Name = "Show London KZ (02:00-05:00 ET)", GroupName = "Kill Zones", Order = 2)] public bool ShowLondonKz { get => _showLondonKz; set => _showLondonKz = value; }
+        [NinjaScriptProperty, Display(Name = "Show NY AM KZ (07:00-10:00 ET)", GroupName = "Kill Zones", Order = 3)] public bool ShowNyAmKz { get => _showNyAmKz; set => _showNyAmKz = value; }
+        [NinjaScriptProperty, Display(Name = "Show KZ Labels", GroupName = "Kill Zones", Order = 4)] public bool ShowKzLabels { get => _showKzLabels; set => _showKzLabels = value; }
+
+        [XmlIgnore, Display(Name = "Asia KZ Color", GroupName = "Kill Zones", Order = 5)] public Brush AsiaKzColor { get => _asiaKzColor; set => _asiaKzColor = value; }
+        [Browsable(false)] public string AsiaKzColorSerializable { get => Serialize.BrushToString(_asiaKzColor); set => _asiaKzColor = Serialize.StringToBrush(value); }
+        [XmlIgnore, Display(Name = "London KZ Color", GroupName = "Kill Zones", Order = 6)] public Brush LondonKzColor { get => _londonKzColor; set => _londonKzColor = value; }
+        [Browsable(false)] public string LondonKzColorSerializable { get => Serialize.BrushToString(_londonKzColor); set => _londonKzColor = Serialize.StringToBrush(value); }
+        [XmlIgnore, Display(Name = "NY AM KZ Color", GroupName = "Kill Zones", Order = 7)] public Brush NyAmKzColor { get => _nyAmKzColor; set => _nyAmKzColor = value; }
+        [Browsable(false)] public string NyAmKzColorSerializable { get => Serialize.BrushToString(_nyAmKzColor); set => _nyAmKzColor = Serialize.StringToBrush(value); }
 
         [Browsable(false), XmlIgnore] public Series<double> OvernightHigh  => Values[0];
         [Browsable(false), XmlIgnore] public Series<double> OvernightLow   => Values[1];
