@@ -6,6 +6,7 @@ using System.Windows.Media;
 using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
+using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
@@ -30,7 +31,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Description = "Market Structure (BOS/CHoCH) + Liquidity Sweeps + Premium/Discount Zones + Internal Structure.";
                 Calculate = Calculate.OnBarClose;
                 IsOverlay = true;
-                MaxLookBack = MaximumBarsLookBack.Infinite;
+                MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
 
                 SwingStrength = 5;
                 ShowBos = true;

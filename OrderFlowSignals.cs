@@ -5,8 +5,10 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Windows.Media;
 using System.Xml.Serialization;
+using NinjaTrader.Data;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
+using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
 // Triple-A Phase Machine: Absorption → Accumulation → Aggression
@@ -64,7 +66,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Description = "Big Trades + Triple-A Phase Machine (Absorption→Accumulation→Aggression) + LVN Engine.";
                 Calculate   = Calculate.OnEachTick;
                 IsOverlay   = true;
-                MaxLookBack = MaximumBarsLookBack.Infinite;
+                MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
 
                 BigTradeMultiplier  = 3.0;
                 ShowBubbles         = true;

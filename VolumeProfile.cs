@@ -5,11 +5,11 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Windows.Media;
 using System.Xml.Serialization;
-using NinjaTrader.Data;
 using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.BarsTypes;
+using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
@@ -43,7 +43,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Description = "Order Flow analysis + Market Volume + Volume Profile (POC/VAH/VAL) with advanced filtering.";
                 Calculate   = Calculate.OnBarClose;
                 IsOverlay   = false;
-                MaxLookBack = MaximumBarsLookBack.Infinite;
+                MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
                 DrawOnPricePanel = true;
 
                 ShowOrderFlow      = true;
@@ -102,8 +102,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     var vol = _volumetricBars.Volumes[CurrentBar];
                     if (vol != null)
                     {
-                        upVol = vol.BuyingVolume;
-                        dnVol = vol.SellingVolume;
+                        upVol = vol.BuyVolume;
+                        dnVol = vol.SellVolume;
                         return upVol - dnVol;
                     }
                 }

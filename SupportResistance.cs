@@ -14,7 +14,9 @@ using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
+using NinjaTrader.Gui.Tools;
 using NinjaTrader.NinjaScript;
+using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
@@ -52,7 +54,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Description    = "Support & Resistance Zones — Pivots / Donchian / CSID detection with zone depth, overlap handling and visibility control.";
                 Calculate      = Calculate.OnBarClose;
                 IsOverlay      = true;
-                MaxLookBack = MaximumBarsLookBack.Infinite;
+                MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
                 DrawOnPricePanel   = true;
                 ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;
                 IsSuspendedWhileInactive = true;

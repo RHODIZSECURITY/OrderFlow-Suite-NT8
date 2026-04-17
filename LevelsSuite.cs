@@ -10,6 +10,7 @@ using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.Indicators;
+using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
@@ -65,7 +66,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Description = "Market levels: Previous Day, Pre-Market levels/VWAP, session VWAP, ORB Pro and session gaps.";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
-                MaxLookBack = MaximumBarsLookBack.Infinite;
+                MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
                 IsSuspendedWhileInactive = true;
                 DrawOnPricePanel = true;
 

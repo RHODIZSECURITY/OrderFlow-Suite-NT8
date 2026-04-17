@@ -910,7 +910,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 					Name										= "HeatMapFlow";
 				Calculate									= Calculate.OnEachTick;
 				IsOverlay									= true;
-				MaxLookBack									= MaximumBarsLookBack.Infinite;
+				MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
 				DisplayInDataBox							= true;
 				DrawOnPricePanel							= true;
 				DrawHorizontalGridLines						= true;

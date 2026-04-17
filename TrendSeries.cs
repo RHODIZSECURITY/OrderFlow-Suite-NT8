@@ -8,6 +8,7 @@ using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.Indicators;
+using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
 // Consolidated EMA/SMA/Bollinger Bands Pro implementation
@@ -51,7 +52,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Description        = "EMA Series + SMA Series + Bollinger Bands Pro.";
                 Calculate          = Calculate.OnBarClose;
                 IsOverlay          = true;
-                MaxLookBack = MaximumBarsLookBack.Infinite;
+                MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
                 DisplayInDataBox   = true;
                 DrawOnPricePanel   = true;
                 ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;

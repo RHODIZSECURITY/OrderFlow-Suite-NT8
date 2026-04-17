@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
+using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
@@ -47,7 +48,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Description = "Fair Value Gaps (FVG) + Order Blocks with advanced mitigations and breaker blocks.";
                 Calculate = Calculate.OnBarClose;
                 IsOverlay = true;
-                MaxLookBack = MaximumBarsLookBack.Infinite;
+                MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
 
                 FvgEnabled = true;
                 MinFvgTicks = 2;
