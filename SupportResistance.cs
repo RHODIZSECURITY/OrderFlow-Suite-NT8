@@ -34,6 +34,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             public int    Sweeps;
             public int    StartBar;
             public string Tag, LblTag;
+            public bool   InZone;  // tracks if price was inside zone last bar (for retest counting)
         }
 
         private readonly List<SRZone> _levels = new List<SRZone>();
@@ -178,6 +179,17 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 if (swept)
                 {
                     var upd = lvl; upd.Sweeps++; _levels[i] = upd;
+                }
+
+                // Retest tracking: price enters zone without breaking → increment Strength once per visit
+                bool touching = High[0] >= lvl.Bot && Low[0] <= lvl.Top;
+                if (touching && !_levels[i].InZone)
+                {
+                    var upd = _levels[i]; upd.Strength++; upd.InZone = true; _levels[i] = upd;
+                }
+                else if (!touching && _levels[i].InZone)
+                {
+                    var upd = _levels[i]; upd.InZone = false; _levels[i] = upd;
                 }
 
                 // Refresh draw

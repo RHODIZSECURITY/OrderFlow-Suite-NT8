@@ -161,7 +161,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 if (double.IsNaN(Close[i])) { Values[9][0] = Values[10][0] = Values[11][0] = double.NaN; return; }
                 sumSq += Math.Pow(Close[i] - _bbBasis, 2);
             }
-            double stdev = Math.Sqrt(Math.Max(0, sumSq / _bbLength));
+            double stdev = Math.Sqrt(Math.Max(0, sumSq / Math.Max(1, _bbLength - 1)));
 
             _bbUpper = _bbBasis + _bbMult * stdev;
             _bbLower = _bbBasis - _bbMult * stdev;

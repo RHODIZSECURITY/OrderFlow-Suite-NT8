@@ -19,6 +19,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         private double _lastSwingLow;
         private int _trend; // 1 bullish, -1 bearish, 0 neutral
 
+        private double _prevPivotHigh = double.NaN;
+        private double _prevPivotLow  = double.NaN;
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -35,6 +38,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 ShowLiquiditySweeps = true;
                 ShowPremiumDiscount = true;
                 ZoneOpacity = 12;
+                ShowSwingDots = true;
+                ShowEqhEql = true;
+                EqTolerance = 3;
 
                 AddPlot(new Stroke(Brushes.Gold, 2), PlotStyle.Line, "Equilibrium");
             }
@@ -57,6 +63,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             DetectStructure(eq);
             DetectLiquiditySweeps(eq);
             DrawPremiumDiscount(eq);
+            DetectPivotsAndEqhEql();
         }
 
         private void DetectStructure(double eq)
@@ -123,6 +130,60 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             Draw.Region(this, "SS_DISCOUNT", 0, 0, eq, _lastSwingLow, Brushes.Transparent, Brushes.LimeGreen, ZoneOpacity);
         }
 
+        private bool IsPivotHigh(int barsAgo)
+        {
+            if (CurrentBar < SwingStrength * 2 + 1) return false;
+            double h = High[barsAgo];
+            for (int i = 0; i < SwingStrength * 2 + 1; i++)
+            {
+                if (i == barsAgo) continue;
+                if (High[i] >= h) return false;
+            }
+            return true;
+        }
+
+        private bool IsPivotLow(int barsAgo)
+        {
+            if (CurrentBar < SwingStrength * 2 + 1) return false;
+            double l = Low[barsAgo];
+            for (int i = 0; i < SwingStrength * 2 + 1; i++)
+            {
+                if (i == barsAgo) continue;
+                if (Low[i] <= l) return false;
+            }
+            return true;
+        }
+
+        private void DetectPivotsAndEqhEql()
+        {
+            if (CurrentBar < SwingStrength * 2 + 2) return;
+            double tol = EqTolerance * TickSize;
+
+            if (IsPivotHigh(SwingStrength))
+            {
+                double ph = High[SwingStrength];
+                if (ShowSwingDots)
+                    Draw.Dot(this, $"SS_SH_{CurrentBar}", false, SwingStrength, ph, Brushes.IndianRed);
+
+                if (ShowEqhEql && !double.IsNaN(_prevPivotHigh) && Math.Abs(ph - _prevPivotHigh) <= tol)
+                    Draw.Text(this, $"SS_EQH_{CurrentBar}", "EQH", SwingStrength, ph + TickSize * 4, Brushes.OrangeRed);
+
+                _prevPivotHigh = ph;
+            }
+
+            if (IsPivotLow(SwingStrength))
+            {
+                double pl = Low[SwingStrength];
+                if (ShowSwingDots)
+                    Draw.Dot(this, $"SS_SL_{CurrentBar}", false, SwingStrength, pl, Brushes.LimeGreen);
+
+                if (ShowEqhEql && !double.IsNaN(_prevPivotLow) && Math.Abs(pl - _prevPivotLow) <= tol)
+                    Draw.Text(this, $"SS_EQL_{CurrentBar}", "EQL", SwingStrength, pl - TickSize * 4, Brushes.DeepSkyBlue);
+
+                _prevPivotLow = pl;
+            }
+        }
+
         [NinjaScriptProperty, Range(2, 100), Display(Name = "Swing Strength", GroupName = "Market Structure", Order = 1)]
         public int SwingStrength { get; set; }
 
@@ -140,6 +201,15 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
         [NinjaScriptProperty, Range(1, 60), Display(Name = "Zone Opacity", GroupName = "Premium/Discount Zones", Order = 2)]
         public int ZoneOpacity { get; set; }
+
+        [NinjaScriptProperty, Display(Name = "Show Swing Dots", GroupName = "Market Structure", Order = 4)]
+        public bool ShowSwingDots { get; set; }
+
+        [NinjaScriptProperty, Display(Name = "Show EQH/EQL", GroupName = "Market Structure", Order = 5)]
+        public bool ShowEqhEql { get; set; }
+
+        [NinjaScriptProperty, Range(1, 20), Display(Name = "EQ Tolerance (ticks)", GroupName = "Market Structure", Order = 6)]
+        public int EqTolerance { get; set; }
 
         [Browsable(false)]
         public Series<double> Equilibrium => Values[0];

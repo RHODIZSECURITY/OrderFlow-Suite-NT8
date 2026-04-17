@@ -21,10 +21,13 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
     {
         private struct Zone
         {
-            public int StartBar;
+            public int    StartBar;
             public double Top;
             public double Bottom;
-            public bool Bull;
+            public bool   Bull;
+            public bool   Mitigated;
+            public string DrawTag;
+            public string LabelTag;
         }
 
         private readonly List<Zone> _fvgZones = new List<Zone>();
@@ -70,10 +73,16 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 return;
 
             if (FvgEnabled)
+            {
                 ProcessFvg();
+                CheckFvgMitigation();
+            }
 
             if (ObEnabled)
+            {
                 ProcessOrderBlocks();
+                CheckObInvalidation();
+            }
         }
 
         private void ProcessFvg()
@@ -99,7 +108,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (QualityFilter == FvgQuality.Strong && !strong)
                 return;
 
-            Zone zone = new Zone { StartBar = CurrentBar, Top = top, Bottom = bot, Bull = bullGap };
+            string fvgTag = $"SMC_FVG_{(bullGap ? "B" : "S")}_{CurrentBar}";
+            Zone zone = new Zone { StartBar = CurrentBar, Top = top, Bottom = bot, Bull = bullGap, DrawTag = fvgTag };
             if (OverlapMode == ObOverlapMode.Merge)
                 MergeZone(_fvgZones, zone);
             else
@@ -107,13 +117,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             _lastFvgTop = zone.Top;
             _lastFvgBottom = zone.Bottom;
 
-            Draw.Rectangle(this,
-                $"SMC_FVG_{(bullGap ? "B" : "S")}_{CurrentBar}",
-                false,
-                0,
-                top,
-                -FvgExtendBars,
-                bot,
+            Draw.Rectangle(this, fvgTag, false, 0, top, -FvgExtendBars, bot,
                 zone.Bull ? FvgBullColor : FvgBearColor,
                 zone.Bull ? FvgBullColor : FvgBearColor,
                 FvgOpacity);
@@ -134,7 +138,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             double hi = RangeMode == ObRangeMode.BodyOnly ? Math.Max(Open[srcBar], Close[srcBar]) : High[srcBar];
             double lo = RangeMode == ObRangeMode.BodyOnly ? Math.Min(Open[srcBar], Close[srcBar]) : Low[srcBar];
 
-            Zone zone = new Zone { StartBar = CurrentBar, Top = hi, Bottom = lo, Bull = bullImpulse };
+            string obTag  = $"SMC_OB_{(bullImpulse ? "B" : "S")}_{CurrentBar}";
+            string lblTag = $"SMC_OB_LBL_{CurrentBar}";
+            Zone zone = new Zone { StartBar = CurrentBar, Top = hi, Bottom = lo, Bull = bullImpulse, DrawTag = obTag, LabelTag = lblTag };
             if (OverlapMode == ObOverlapMode.Merge)
                 MergeZone(_obZones, zone);
             else
@@ -142,19 +148,54 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             _lastObTop = zone.Top;
             _lastObBottom = zone.Bottom;
 
-            Draw.Rectangle(this,
-                $"SMC_OB_{(bullImpulse ? "B" : "S")}_{CurrentBar}",
-                false,
-                1,
-                hi,
-                -ObExtendBars,
-                lo,
+            Draw.Rectangle(this, obTag, false, 1, hi, -ObExtendBars, lo,
                 bullImpulse ? ObBullColor : ObBearColor,
                 bullImpulse ? ObBullColor : ObBearColor,
                 ObOpacity);
 
             if (ShowObLabels)
-                Draw.Text(this, $"SMC_OB_LBL_{CurrentBar}", "OB", 0, (hi + lo) * 0.5, bullImpulse ? ObBullColor : ObBearColor);
+                Draw.Text(this, lblTag, "OB", 0, (hi + lo) * 0.5, bullImpulse ? ObBullColor : ObBearColor);
+        }
+
+        // FVG mitigated when price closes INSIDE the gap — dim the zone and stop extending
+        private void CheckFvgMitigation()
+        {
+            for (int i = 0; i < _fvgZones.Count; i++)
+            {
+                Zone z = _fvgZones[i];
+                if (z.Mitigated || string.IsNullOrEmpty(z.DrawTag)) continue;
+
+                bool entered = Close[0] > z.Bottom && Close[0] < z.Top;
+                if (!entered) continue;
+
+                z.Mitigated = true;
+                _fvgZones[i] = z;
+
+                int barsBack = CurrentBar - z.StartBar;
+                Draw.Rectangle(this, z.DrawTag, false,
+                    barsBack, z.Top, 0, z.Bottom,
+                    z.Bull ? FvgBullColor : FvgBearColor,
+                    z.Bull ? FvgBullColor : FvgBearColor,
+                    Math.Max(1, FvgOpacity / 4));
+            }
+        }
+
+        // OB invalidated when price closes BEYOND the zone (bull OB: close < bottom; bear OB: close > top)
+        private void CheckObInvalidation()
+        {
+            for (int i = 0; i < _obZones.Count; i++)
+            {
+                Zone z = _obZones[i];
+                if (z.Mitigated || string.IsNullOrEmpty(z.DrawTag)) continue;
+
+                bool broken = z.Bull ? Close[0] < z.Bottom : Close[0] > z.Top;
+                if (!broken) continue;
+
+                z.Mitigated = true;
+                _obZones[i] = z;
+                RemoveDrawObject(z.DrawTag);
+                if (!string.IsNullOrEmpty(z.LabelTag)) RemoveDrawObject(z.LabelTag);
+            }
         }
 
         private const int MaxZones = 300;

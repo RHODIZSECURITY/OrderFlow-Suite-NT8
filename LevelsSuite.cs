@@ -37,6 +37,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         private DateTime _sessionDate;
         private double _sessVwapNumer;
         private double _sessVwapDenom;
+        private double _sessSumVT2;  // Σ(vol * typical²) for VWAP variance
 
         private bool _orbReady;
         private bool _orbBrokenUp;
@@ -82,6 +83,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
                 _showSessionVWAP = true;
                 _sessionVwapColor = Brushes.Gold;
+                _showVwapBands = true;
+                _vwapSd1Color = new SolidColorBrush(Color.FromArgb(160, 255, 215, 0));
+                _vwapSd2Color = new SolidColorBrush(Color.FromArgb(110, 218, 165, 32));
 
                 _orbDuration = 5;
                 _orbCutoffHour = 11;
@@ -104,6 +108,10 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 AddPlot(new Stroke(Brushes.Orange, 2), PlotStyle.HLine, "OvernightLow");
                 AddPlot(new Stroke(Brushes.MediumPurple, 2), PlotStyle.Line, "OvernightVWAP");
                 AddPlot(new Stroke(Brushes.Gold, 2), PlotStyle.Line, "SessionVWAPLine");
+                AddPlot(new Stroke(Brushes.Gold, 1), PlotStyle.Line, "VwapSD1Up");
+                AddPlot(new Stroke(Brushes.Gold, 1), PlotStyle.Line, "VwapSD1Down");
+                AddPlot(new Stroke(Brushes.DarkGoldenrod, 1), PlotStyle.Line, "VwapSD2Up");
+                AddPlot(new Stroke(Brushes.DarkGoldenrod, 1), PlotStyle.Line, "VwapSD2Down");
             }
             else if (State == State.Configure)
             {
@@ -113,6 +121,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             {
                 _sessionDate = Core.Globals.MinDate;
                 _pmVwapFinal = double.NaN;
+                _sessSumVT2  = 0;
             }
         }
 
@@ -149,6 +158,19 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             Values[1][0] = (_showPMHigh && _pmReady) ? _pmLowFinal : double.NaN;
             Values[2][0] = (_showPMVwap && !double.IsNaN(_pmVwapFinal)) ? _pmVwapFinal : double.NaN;
             Values[3][0] = (_showSessionVWAP && _sessVwapDenom > 0) ? _sessVwapNumer / _sessVwapDenom : double.NaN;
+
+            if (_showSessionVWAP && _showVwapBands && _sessVwapDenom > 0)
+            {
+                double vwap     = _sessVwapNumer / _sessVwapDenom;
+                double variance = _sessSumVT2 / _sessVwapDenom - vwap * vwap;
+                double sd       = Math.Sqrt(Math.Max(0, variance));
+                Values[4][0] = vwap + sd;
+                Values[5][0] = vwap - sd;
+                Values[6][0] = vwap + 2 * sd;
+                Values[7][0] = vwap - 2 * sd;
+            }
+            else
+                Values[4][0] = Values[5][0] = Values[6][0] = Values[7][0] = double.NaN;
         }
 
         private void UpdatePreMarket(bool inPm, double typical)
@@ -173,6 +195,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
             _sessVwapNumer += typical * Volume[0];
             _sessVwapDenom += Volume[0];
+            _sessSumVT2    += typical * typical * Volume[0];
 
             if (t <= _orbEndTime)
             {
@@ -270,6 +293,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
             _sessVwapNumer = 0;
             _sessVwapDenom = 0;
+            _sessSumVT2    = 0;
 
             DateTime nyOpen = new DateTime(t.Year, t.Month, t.Day, 9, 30, 0);
             _orbEndTime = nyOpen.AddMinutes(_orbDuration);
@@ -339,6 +363,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         private Brush _pmHighColor, _pmLowColor, _pmVwapColor;
         private bool _showSessionVWAP;
         private Brush _sessionVwapColor;
+        private bool _showVwapBands;
+        private Brush _vwapSd1Color, _vwapSd2Color;
         private int _orbDuration, _orbCutoffHour;
         private bool _enableBreak, _enableTrap, _enableReversal, _showFill, _showLabels;
         private Brush _orbHighColor, _orbLowColor;
@@ -365,6 +391,11 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         [NinjaScriptProperty, Display(Name = "ShowPMLabels", GroupName = "NY Pre-Market Levels", Order = 5)] public bool ShowPMLabels { get => _showPMLabels; set => _showPMLabels = value; }
 
         [NinjaScriptProperty, Display(Name = "ShowSessionVWAP", GroupName = "Session VWAP", Order = 1)] public bool ShowSessionVWAP { get => _showSessionVWAP; set => _showSessionVWAP = value; }
+        [NinjaScriptProperty, Display(Name = "Show VWAP Bands (±1σ/±2σ)", GroupName = "Session VWAP", Order = 2)] public bool ShowVwapBands { get => _showVwapBands; set => _showVwapBands = value; }
+        [XmlIgnore, Display(Name = "VWAP SD1 Color", GroupName = "Session VWAP", Order = 3)] public Brush VwapSd1Color { get => _vwapSd1Color; set => _vwapSd1Color = value; }
+        [Browsable(false)] public string VwapSd1ColorSerializable { get => Serialize.BrushToString(_vwapSd1Color); set => _vwapSd1Color = Serialize.StringToBrush(value); }
+        [XmlIgnore, Display(Name = "VWAP SD2 Color", GroupName = "Session VWAP", Order = 4)] public Brush VwapSd2Color { get => _vwapSd2Color; set => _vwapSd2Color = value; }
+        [Browsable(false)] public string VwapSd2ColorSerializable { get => Serialize.BrushToString(_vwapSd2Color); set => _vwapSd2Color = Serialize.StringToBrush(value); }
 
         [NinjaScriptProperty, Range(1, 120), Display(Name = "OrbDuration", GroupName = "ORB Pro", Order = 1)] public int OrbDuration { get => _orbDuration; set => _orbDuration = value; }
         [NinjaScriptProperty, Range(9, 16), Display(Name = "OrbCutoffHour", GroupName = "ORB Pro", Order = 2)] public int OrbCutoffHour { get => _orbCutoffHour; set => _orbCutoffHour = value; }
@@ -378,10 +409,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         [NinjaScriptProperty, Display(Name = "ShowGapLine", GroupName = "Session Gap", Order = 2)] public bool ShowGapLine { get => _showGapLine; set => _showGapLine = value; }
         [NinjaScriptProperty, Display(Name = "ShowGapLabel", GroupName = "Session Gap", Order = 3)] public bool ShowGapLabel { get => _showGapLabel; set => _showGapLabel = value; }
 
-        [Browsable(false), XmlIgnore] public Series<double> OvernightHigh => Values[0];
-        [Browsable(false), XmlIgnore] public Series<double> OvernightLow => Values[1];
-        [Browsable(false), XmlIgnore] public Series<double> OvernightVWAP => Values[2];
+        [Browsable(false), XmlIgnore] public Series<double> OvernightHigh  => Values[0];
+        [Browsable(false), XmlIgnore] public Series<double> OvernightLow   => Values[1];
+        [Browsable(false), XmlIgnore] public Series<double> OvernightVWAP  => Values[2];
         [Browsable(false), XmlIgnore] public Series<double> SessionVWAPLine => Values[3];
+        [Browsable(false), XmlIgnore] public Series<double> VwapSD1Up      => Values[4];
+        [Browsable(false), XmlIgnore] public Series<double> VwapSD1Down    => Values[5];
+        [Browsable(false), XmlIgnore] public Series<double> VwapSD2Up      => Values[6];
+        [Browsable(false), XmlIgnore] public Series<double> VwapSD2Down    => Values[7];
         [Browsable(false)] public double PrevHigh => _prevHigh;
         [Browsable(false)] public double PrevLow => _prevLow;
         [Browsable(false)] public bool OrbReady => _orbReady;
