@@ -204,6 +204,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 sink.AddLine(new SharpDX.Vector2(x1, y1l));
                 sink.EndFigure(SharpDX.Direct2D1.FigureEnd.Closed);
                 sink.Close();
+                sink.Dispose();
 
                 renderTarget.FillGeometry(geo, dx2Fill);
                 geo.Dispose();

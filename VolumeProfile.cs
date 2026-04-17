@@ -120,6 +120,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     int minIdx = 0;
                     for (int i = 1; i < _sortedLevels.Count; i++)
                         if (_sortedLevels.Values[i] < _sortedLevels.Values[minIdx]) minIdx = i;
+                    _totalSessionVol -= _sortedLevels.Values[minIdx];  // keep denominator consistent
                     _sortedLevels.RemoveAt(minIdx);
                 }
 

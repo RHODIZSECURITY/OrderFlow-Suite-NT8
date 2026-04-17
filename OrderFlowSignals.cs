@@ -205,8 +205,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
         private void DetectLvn(double atrSafe)
         {
-            if (CurrentBar < 5) return;
-            double avgRange = ATR(5)[0];
+            if (CurrentBar < 10) return;
+            double avgRange = Math.Max(TickSize, ATR(5)[0]);
             double range    = High[0] - Low[0];
 
             bool lvnSeed = Volume[0] < _avgVol * 0.5
