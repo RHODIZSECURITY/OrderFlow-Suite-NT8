@@ -58,17 +58,17 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 DetectionMethod  = SrDetectionMethod.Pivots;
                 SwingSensitivity = 3;
                 DisplayType      = SrDisplayType.Zones;
-                ZoneDepthAtr     = 0.5;
-                BreakoutBuffer   = 0.1;
-                ZoneOpacity      = 20;
+                ZoneDepthAtr     = 1.0;
+                BreakoutBuffer   = 0.25;
+                ZoneOpacity      = 65;
                 OverlapHandling  = SrOverlapMode.HideOldest;
                 MaxHistory       = 8;
-                VisibleAbove     = 4;
-                VisibleBelow     = 4;
+                VisibleAbove     = 2;
+                VisibleBelow     = 2;
                 ShowLabels       = true;
                 ShowBreakLines   = true;
-                ResistColor      = new SolidColorBrush(Color.FromArgb(200, 255,  80,  80));
-                SupportColor     = new SolidColorBrush(Color.FromArgb(200,  80, 200,  80));
+                ResistColor      = new SolidColorBrush(Color.FromRgb(180, 30,  30));
+                SupportColor     = new SolidColorBrush(Color.FromRgb( 30, 160, 50));
             }
             else if (State == State.DataLoaded)
             {
@@ -271,26 +271,27 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         private void RedrawZone(SRZone z)
         {
             if (z.Hidden || z.Mitigated) return;
-            Brush c   = z.IsSupport ? SupportColor : ResistColor;
-            int   ago = Math.Max(0, Math.Min(CurrentBar - z.StartBar, 4000));
+            Brush fill    = z.IsSupport ? (SupportColor ?? Brushes.Green) : (ResistColor ?? Brushes.Red);
+            int   ago     = Math.Max(0, Math.Min(CurrentBar - z.StartBar, 4000));
 
             if (DisplayType == SrDisplayType.Zones)
             {
-                // barsAgo=ago (left edge at pivot bar), barsAgo2=0 (right edge at current bar)
-                // Redrawn every bar so right edge advances with the chart (equivalent to extend.right)
-                Draw.Rectangle(this, z.Tag, false, ago, z.Top, 0, z.Bot, c, c, ZoneOpacity);
+                // Pine Script equivalent: border_color=na, bgcolor=fill — no visible border
+                // barsAgo=ago (pivot bar, left edge), barsAgo2=0 (current bar, right edge, extends each close)
+                Draw.Rectangle(this, z.Tag, false, ago, z.Top, 0, z.Bot,
+                    Brushes.Transparent, fill, ZoneOpacity);
             }
             else
             {
-                Draw.HorizontalLine(this, z.Tag, z.Base, c, DashStyleHelper.Solid, 2);
+                Draw.HorizontalLine(this, z.Tag, z.Base, fill, DashStyleHelper.Solid, 2);
             }
 
             if (ShowLabels)
             {
-                string lbl  = string.Format("{0}  S:{1}  Sw:{2}", z.IsSupport ? "SUP" : "RES", z.Strength, z.Sweeps);
-                double yLbl = z.IsSupport ? z.Bot - TickSize * 4 : z.Top + TickSize * 4;
-                Draw.Text(this, z.LblTag, true, lbl, 0, yLbl, 0,
-                    c, new SimpleFont("Arial", 8), System.Windows.TextAlignment.Left,
+                string lbl  = z.IsSupport ? "SUPPORT" : "RESISTANCE";
+                double yLbl = (z.Top + z.Bot) * 0.5;   // center of zone, matching Pine valign=center
+                Draw.Text(this, z.LblTag, true, lbl, ago, yLbl, 0,
+                    Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
                     Brushes.Transparent, Brushes.Transparent, 0);
             }
         }
