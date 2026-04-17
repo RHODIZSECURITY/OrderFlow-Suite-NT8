@@ -8,7 +8,6 @@ using System.Xml.Serialization;
 using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
-using NinjaTrader.NinjaScript.BarsTypes;
 using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
@@ -31,9 +30,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         private double _vah = double.NaN;
         private double _val = double.NaN;
 
-        // OrderFlow+ volumetric bars (real bid/ask volume per price)
-        private VolumetricBarsType _volumetricBars;
-        private bool _volumetricChecked;
+        // reserved for future OrderFlow+ volumetric delta when NT8 exposes VolumetricData API
 
         protected override void OnStateChange()
         {
@@ -71,45 +68,11 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 _cumDelta        = 0;
                 _totalSessionVol = 0;
                 _sortedLevels.Clear();
-                _volumetricBars   = null;
-                _volumetricChecked = false;
             }
         }
 
-        // OrderFlow+ detection — real bid/ask volume per price when user has
-        // volumetric bars on chart. Graceful fallback to Close-vs-Open estimate.
-        private void EnsureVolumetricProbe()
-        {
-            if (_volumetricChecked) return;
-            _volumetricChecked = true;
-            try
-            {
-                if (BarsArray != null && BarsArray.Length > 0 && BarsArray[0] != null)
-                    _volumetricBars = BarsArray[0].BarsType as VolumetricBarsType;
-            }
-            catch { _volumetricBars = null; }
-        }
-
-        // Returns (askVol - bidVol) from volumetric bars when available,
-        // otherwise (upVol - dnVol) using Close vs Open approximation.
         private double GetBarDelta(out double upVol, out double dnVol)
         {
-            EnsureVolumetricProbe();
-            if (_volumetricBars != null && _volumetricBars.Volumes != null && CurrentBar < _volumetricBars.Volumes.Length)
-            {
-                try
-                {
-                    var vol = _volumetricBars.Volumes[CurrentBar];
-                    if (vol != null)
-                    {
-                        double d = vol.Delta;
-                        upVol = Math.Max(0,  d);
-                        dnVol = Math.Max(0, -d);
-                        return d;
-                    }
-                }
-                catch { /* fall through to estimate */ }
-            }
             upVol = Close[0] >= Open[0] ? Volume[0] : 0;
             dnVol = Close[0] <  Open[0] ? Volume[0] : 0;
             return upVol - dnVol;
