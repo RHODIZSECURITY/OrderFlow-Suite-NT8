@@ -62,7 +62,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (State == State.SetDefaults)
             {
                 Name = "LevelsSuite";
-                Description = "TradingView-style market levels: PD, PM levels/VWAP, session VWAP, ORB and session gaps.";
+                Description = "Market levels: Previous Day, Pre-Market levels/VWAP, session VWAP, ORB Pro and session gaps.";
                 Calculate = Calculate.OnEachTick;
                 IsOverlay = true;
                 MaxLookBack = MaximumBarsLookBack.Infinite;

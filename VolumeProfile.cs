@@ -34,7 +34,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (State == State.SetDefaults)
             {
                 Name        = "VolumeProfile";
-                Description = "TradingView-style OrderFlow + MarketVolume + VolumeProfile (POC/VAH/VAL) + VolumeFilter.";
+                Description = "Order Flow analysis + Market Volume + Volume Profile (POC/VAH/VAL) with advanced filtering.";
                 Calculate   = Calculate.OnBarClose;
                 IsOverlay   = false;
                 MaxLookBack = MaximumBarsLookBack.Infinite;

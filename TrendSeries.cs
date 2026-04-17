@@ -10,9 +10,7 @@ using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.Indicators;
 #endregion
 
-// Consolidated from: MASeries.cs + BollingerBandsPro.cs
-// Source: SMC_ICT_Suite_Pro_v25_v10.11p_v30c_compile_fix_obstore_valuewhen.pine
-// Pine sections: CORE SERIES CALCULATIONS (lines 1133-1163) + SERIES PLOTS (lines 1165-1186)
+// Consolidated EMA/SMA/Bollinger Bands Pro implementation
 
 namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
@@ -50,7 +48,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (State == State.SetDefaults)
             {
                 Name               = "TrendSeries";
-                Description        = "EMA Series + SMA Series + Bollinger Bands Pro. Ported from SMC/ICT Suite Pro Pine Script.";
+                Description        = "EMA Series + SMA Series + Bollinger Bands Pro.";
                 Calculate          = Calculate.OnBarClose;
                 IsOverlay          = true;
                 MaxLookBack = MaximumBarsLookBack.Infinite;
@@ -58,20 +56,20 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 DrawOnPricePanel   = true;
                 ScaleJustification = NinjaTrader.Gui.Chart.ScaleJustification.Right;
 
-                // EMA defaults (Pine: 9 off, 20 on, 50 off, 200 off)
+                // EMA defaults (lengths: 9, 20, 50, 200)
                 _ema1Show = false; _ema1Len = 9;   _ema1Color = Brushes.Green;
                 _ema2Show = true;  _ema2Len = 20;  _ema2Color = Brushes.White;
                 _ema3Show = false; _ema3Len = 50;  _ema3Color = Brushes.Orange;
                 _ema4Show = false; _ema4Len = 200; _ema4Color = Brushes.LightBlue;
 
-                // SMA defaults (Pine: 50 on, 100 off, 150 off, 200 on, 600 off)
+                // SMA defaults (lengths: 50, 100, 150, 200, 600)
                 _sma1Show = true;  _sma1Len = 50;  _sma1Color = Brushes.Yellow;
                 _sma2Show = false; _sma2Len = 100; _sma2Color = Brushes.Blue;
                 _sma3Show = false; _sma3Len = 150; _sma3Color = Brushes.Teal;
                 _sma4Show = true;  _sma4Len = 200; _sma4Color = Brushes.DarkRed;
                 _sma5Show = false; _sma5Len = 600; _sma5Color = Brushes.Fuchsia;
 
-                // BB defaults (Pine: length=20, maType=SMA, mult=2.0)
+                // BB defaults (length=20, maType=SMA, mult=2.0)
                 _bbShow       = true;
                 _bbLength     = 20;
                 _bbMaType     = BbMaType.SMA;
@@ -112,7 +110,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             }
         }
 
-        // ── BB: MA selector (Pine: ta.sma / ta.ema / ta.wma / ta.vwma) ────────
+        // ── BB: MA selector (support: SMA, EMA, WMA, VWMA) ────────
         private double CalcBbMA()
         {
             if (CurrentBar < _bbLength - 1) return Close[0];

@@ -44,7 +44,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (State == State.SetDefaults)
             {
                 Name = "SmartMoneyConcepts";
-                Description = "TradingView-style Fair Value Gaps + Order Blocks.";
+                Description = "Fair Value Gaps (FVG) + Order Blocks with advanced mitigations and breaker blocks.";
                 Calculate = Calculate.OnBarClose;
                 IsOverlay = true;
                 MaxLookBack = MaximumBarsLookBack.Infinite;

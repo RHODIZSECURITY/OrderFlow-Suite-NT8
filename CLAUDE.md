@@ -1,7 +1,7 @@
 # OrderFlow Suite NT8 — Estado del Proyecto
 
 ## Contexto General
-- **Proyecto**: NinjaTrader 8 C# indicators — conversión desde Pine Script (OrderFlowScalperPro + SMC/ICT Suite Pro)
+- **Proyecto**: NinjaTrader 8 C# indicators — suite profesional de Order Flow, Smart Money Concepts y análisis de volumen
 - **Versión actual**: 1.2.0
 - **Namespace**: `NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ`
 - **CI/CD**: Push a `main` → GitHub Actions genera ZIP versionado → crea Release en GitHub automáticamente

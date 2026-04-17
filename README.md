@@ -4,7 +4,7 @@
 
 Suite profesional de **Order Flow**, **Smart Money Concepts** y **análisis de volumen** para **NinjaTrader 8**, construida y calibrada para futuros de alta liquidez — **NQ (Nasdaq-100)** y **ES (S&P 500 E-mini)**.
 
-Todos los motores están portados desde los indicadores más vendidos de TradingView (OrderFlow Scalper Pro · SMC/ICT Suite Pro) y reescritos en C# con lógica completa, gestión de memoria y validación de zonas.
+Implementa motores avanzados de análisis de flujo de órdenes, zones S/R, estructura de mercado y detección de volumen con lógica completa, gestión de memoria y validación de zonas.
 
 ---
 
@@ -125,8 +125,6 @@ Todos los motores están portados desde los indicadores más vendidos de Trading
 ├── AddOns/
 │   ├── SE.cs                     # Librería matemáticas (requerida)
 │   ├── OrderFlow-Suite.cs        # AddOn principal (requerido)
-│   ├── OrderFlowScalperPro.pine  # Pine Script fuente (referencia)
-│   └── SMC_ICT_Suite_Pro_v25_*.pine
 ├── dist/
 │   └── NT8_Import_Package/       # Paquete generado por CI
 ├── .github/workflows/

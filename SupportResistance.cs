@@ -1,4 +1,4 @@
-// Converted from SMC / ICT Suite Pro Pine Script — SUPPORT & RESISTANCE section
+// Support & Resistance Zone Detection
 // Detection methods: Pivots / Donchian / CSID
 // Zone depth: ATR multiplier
 // Display: Levels or Zones
@@ -49,7 +49,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (State == State.SetDefaults)
             {
                 Name           = "Support Resistance";
-                Description    = "S/R Zones — Pivots / Donchian / CSID detection with zone depth, overlap handling and visibility control. Ported from SMC/ICT Suite Pro.";
+                Description    = "Support & Resistance Zones — Pivots / Donchian / CSID detection with zone depth, overlap handling and visibility control.";
                 Calculate      = Calculate.OnBarClose;
                 IsOverlay      = true;
                 MaxLookBack = MaximumBarsLookBack.Infinite;

@@ -9,7 +9,6 @@ using NinjaTrader.Gui;
 using NinjaTrader.NinjaScript;
 #endregion
 
-// Ported from OrderFlowScalperPro.pine (lines 590-752)
 // Triple-A Phase Machine: Absorption → Accumulation → Aggression
 // LVN Engine: seed detection + freshness + retest proximity
 // Stacked Imbalances: consecutive bull/bear count
@@ -62,7 +61,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (State == State.SetDefaults)
             {
                 Name        = "OrderFlowSignals";
-                Description = "Big Trades + Triple-A (Absorption→Accumulation→Aggression) + LVN Engine. Ported from OrderFlow Scalper Pro.";
+                Description = "Big Trades + Triple-A Phase Machine (Absorption→Accumulation→Aggression) + LVN Engine.";
                 Calculate   = Calculate.OnEachTick;
                 IsOverlay   = true;
                 MaxLookBack = MaximumBarsLookBack.Infinite;

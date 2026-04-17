@@ -27,7 +27,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (State == State.SetDefaults)
             {
                 Name = "StructureSuite";
-                Description = "TradingView-style MarketStructure + Liquidity + Premium/Discount Zones.";
+                Description = "Market Structure (BOS/CHoCH) + Liquidity Sweeps + Premium/Discount Zones + Internal Structure.";
                 Calculate = Calculate.OnBarClose;
                 IsOverlay = true;
                 MaxLookBack = MaximumBarsLookBack.Infinite;
