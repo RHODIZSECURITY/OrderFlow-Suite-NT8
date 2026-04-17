@@ -7,113 +7,128 @@ using System.Windows.Media;
 using System.Xml.Serialization;
 using NinjaTrader.Data;
 using NinjaTrader.Gui;
+using NinjaTrader.Gui.Chart;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
-// Triple-A Phase Machine: Absorption → Accumulation → Aggression
-// LVN Engine: seed detection + freshness + retest proximity
-// Stacked Imbalances: consecutive bull/bear count
+// Big Trades: variable-size SharpDX circles (volume-proportional, bid/ask classified)
+// Absorption:  variable-size SharpDX diamonds (volume-ratio proportional)
+// Triple-A:   Fabio Valentini sequence — Absorption → Accumulation → Aggression
 
 namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 {
     public enum AbsorptionDirection { Both, BullOnly, BearOnly }
 
-    [Gui.CategoryOrder("Big Trades — Bubbles",  1)]
-    [Gui.CategoryOrder("Absorption",            2)]
-    [Gui.CategoryOrder("Big Trades — Signals",  3)]
-    [Gui.CategoryOrder("Imbalances",            4)]
-    [Gui.CategoryOrder("TripleA",               5)]
-    [Gui.CategoryOrder("TripleA Visuals",       6)]
-    [Gui.CategoryOrder("LVN",                   7)]
-    [Gui.CategoryOrder("Colors",                8)]
+    [Gui.CategoryOrder("Big Trades",  1)]
+    [Gui.CategoryOrder("Absorption",  2)]
+    [Gui.CategoryOrder("Triple-A",    3)]
+    [Gui.CategoryOrder("Colors",      4)]
     public class OrderFlowSignals : Indicator
     {
+        // ── Render queues (shared between data thread and UI thread) ──────────
+        private struct BubblePrint
+        {
+            public int    BarIdx;
+            public double Price;
+            public long   Volume;
+            public bool   IsBuy;
+        }
+        private struct DiamondPrint
+        {
+            public int    BarIdx;
+            public double Price;
+            public double VolRatio;  // Volume / AvgVolume
+            public bool   IsBull;
+        }
+
+        private readonly Queue<BubblePrint>  _bubbles  = new Queue<BubblePrint>();
+        private readonly Queue<DiamondPrint> _diamonds = new Queue<DiamondPrint>();
+        private readonly object _renderLock = new object();
+        private const int MaxBubbles  = 500;
+        private const int MaxDiamonds = 200;
+
+        // ── Cached SharpDX brushes ────────────────────────────────────────────
+        private SharpDX.Direct2D1.RenderTarget _cachedRt;
+        private SharpDX.Direct2D1.Brush _dxBull, _dxBear, _dxAbsUp, _dxAbsDown, _dxBorder;
+
+        // ── Triple-A state machine ────────────────────────────────────────────
         private enum TaaPhase { None, Absorption, Accumulation, Aggression }
+        private TaaPhase _longPhase  = TaaPhase.None;
+        private TaaPhase _shortPhase = TaaPhase.None;
+        private int      _longPhaseBar, _shortPhaseBar;
 
-        private TaaPhase _longPhase   = TaaPhase.None;
-        private TaaPhase _shortPhase  = TaaPhase.None;
-        private int      _longPhaseBar  = 0;
-        private int      _shortPhaseBar = 0;
-
+        // ── Working state ─────────────────────────────────────────────────────
         private double _avgVol;
         private bool   _absUp, _absDown;
-        private int    _bullImbalanceCount;
-        private int    _bearImbalanceCount;
-
-        private double _lvnPrice = double.NaN;
-        private int    _lvnBar   = -1;
-        private bool   _atLvnZone;
-
-        private readonly Queue<string> _bubbleTags = new Queue<string>();
-        private readonly Queue<string> _imbalTags  = new Queue<string>();
-        private const int MaxBubbles    = 600;
-        private const int MaxImbalances = 400;
-
-        private bool   _lastAbsorption;
-        private bool   _lastBullImbalance;
-        private bool   _lastBearImbalance;
-        private double _lastAbsorptionPrice;
-
         private double _lastBid = double.NaN;
         private double _lastAsk = double.NaN;
+
+        // Exposed for cross-indicator reading
+        private bool   _lastAbsorption;
+        private double _lastAbsorptionPrice;
 
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
             {
                 Name        = "OrderFlowSignals";
-                Description = "Big Trades + Triple-A Phase Machine (Absorption→Accumulation→Aggression) + LVN Engine.";
+                Description = "Big Trades (circles) + Absorption (diamonds) + Triple-A signal machine.";
                 Calculate   = Calculate.OnEachTick;
                 IsOverlay   = true;
                 MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
+                IsSuspendedWhileInactive = true;
 
-                BigTradeMultiplier  = 3.0;
-                ShowBubbles         = true;
-                BigPrintSize        = 50;
+                // Big Trades
+                ShowBubbles        = true;
+                BigPrintSize       = 50;
+                BigTradeMultiplier = 3.0;
+                BubbleMaxRadius    = 28;
+                BubbleOpacity      = 85;
 
+                // Absorption
                 EnableAbsorption    = true;
-                AbsorptionAtrFactor = 0.25;
+                AbsorptionMultiplier = 2.5;
+                AbsorptionAtrFactor = 0.30;
                 AbsDir              = AbsorptionDirection.Both;
+                DiamondMaxRadius    = 22;
 
-                EnableImbalance     = true;
-                ImbalanceRatio      = 1.5;
-                StackedMinCount     = 2;
+                // Triple-A
+                EnableTripleA   = true;
+                TripleALookback  = 20;
+                TaaPhaseTimeout  = 10;
+                ShowTaaLabels    = true;
 
-                TripleALookback     = 20;
-                TaaPhaseTimeout     = 10;
-                ShowTaaLabels       = true;
+                // Colors
+                ColorBigBull  = Brushes.LimeGreen;
+                ColorBigBear  = Brushes.IndianRed;
+                ColorAbsUp    = Brushes.DeepSkyBlue;
+                ColorAbsDown  = Brushes.Magenta;
+                ColorTaaLong  = Brushes.Lime;
+                ColorTaaShort = Brushes.OrangeRed;
 
-                EnableLvn           = true;
-                LvnLookbackBars     = 60;
-                LvnRetestAtrMult    = 0.35;
-
-                ColorBigBull     = Brushes.LimeGreen;
-                ColorBigBear     = Brushes.IndianRed;
-                ColorAbsUp       = Brushes.DeepSkyBlue;
-                ColorAbsDown     = Brushes.Magenta;
-                ColorStackedBull = Brushes.Cyan;
-                ColorStackedBear = Brushes.OrangeRed;
-                ColorTaaLong     = Brushes.Lime;
-                ColorTaaShort    = Brushes.Red;
-                ColorLvn         = Brushes.Yellow;
-
-                AddPlot(new Stroke(Brushes.Lime, 2), PlotStyle.TriangleUp,   "PhaseLong");
-                AddPlot(new Stroke(Brushes.Red,  2), PlotStyle.TriangleDown, "PhaseShort");
+                AddPlot(new Stroke(Brushes.Lime,      2), PlotStyle.TriangleUp,   "PhaseLong");
+                AddPlot(new Stroke(Brushes.OrangeRed, 2), PlotStyle.TriangleDown, "PhaseShort");
             }
             else if (State == State.DataLoaded)
             {
-                _bubbleTags.Clear();
-                _imbalTags.Clear();
+                lock (_renderLock)
+                {
+                    _bubbles.Clear();
+                    _diamonds.Clear();
+                }
                 _longPhase  = TaaPhase.None;
                 _shortPhase = TaaPhase.None;
-                _lvnPrice   = double.NaN;
-                _lvnBar     = -1;
-                _bullImbalanceCount = 0;
-                _bearImbalanceCount = 0;
+                _lastAbsorption = false;
+                _lastAbsorptionPrice = double.NaN;
+            }
+            else if (State == State.Terminated)
+            {
+                DisposeDxBrushes();
             }
         }
 
+        // ── OnBarUpdate: absorption detection + 3A machine ───────────────────
         protected override void OnBarUpdate()
         {
             int warmup = Math.Max(20, TripleALookback);
@@ -129,114 +144,57 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             double atrSafe = Math.Max(atr, TickSize);
 
             _absUp = false; _absDown = false;
-            _lastAbsorption = false; _lastAbsorptionPrice = double.NaN;
+            _lastAbsorption = false;
 
             if (EnableAbsorption) DetectAbsorption(atrSafe);
-            if (EnableImbalance)  DetectImbalances();
-            if (EnableLvn)        DetectLvn(atrSafe);
-
-            bool bigBull = Close[0] >= Open[0] && Volume[0] > _avgVol * BigTradeMultiplier;
-            bool bigBear = Close[0] <  Open[0] && Volume[0] > _avgVol * BigTradeMultiplier;
-            if (ShowBubbles)
-            {
-                if (bigBull) DrawBubble($"OFS_BB_{CurrentBar}", Low[0]  - TickSize * 2, ColorBigBull);
-                if (bigBear) DrawBubble($"OFS_BS_{CurrentBar}", High[0] + TickSize * 2, ColorBigBear);
-            }
 
             Values[0][0] = double.NaN;
             Values[1][0] = double.NaN;
 
-            if (IsFirstTickOfBar) RunTripleAMachine();
+            if (EnableTripleA && IsFirstTickOfBar) RunTripleAMachine(atrSafe);
         }
 
+        // ── Absorption: high-volume narrow-range candle ───────────────────────
         private void DetectAbsorption(double atrSafe)
         {
             double move   = High[0] - Low[0];
-            bool highVol  = Volume[0] > _avgVol * BigTradeMultiplier;
-            bool absorbed = highVol && move < atrSafe * AbsorptionAtrFactor;
-            if (!absorbed) return;
+            bool highVol  = _avgVol > 0 && Volume[0] > _avgVol * AbsorptionMultiplier;
+            bool narrow   = move < atrSafe * AbsorptionAtrFactor;
+            if (!highVol || !narrow) return;
 
             bool bull = Close[0] >= Open[0];
-            bool bear = Close[0] <  Open[0];
+            bool bear = !bull;
 
             _absUp   = bull && AbsDir != AbsorptionDirection.BearOnly;
             _absDown = bear && AbsDir != AbsorptionDirection.BullOnly;
-            _lastAbsorption      = true;
+
+            _lastAbsorption      = _absUp || _absDown;
             _lastAbsorptionPrice = (High[0] + Low[0]) * 0.5;
 
-            if (_absUp)   Draw.Text(this, $"OFS_ABS_U_{CurrentBar}", "ABS↑", 0, Low[0]  - TickSize * 3, ColorAbsUp);
-            if (_absDown) Draw.Text(this, $"OFS_ABS_D_{CurrentBar}", "ABS↓", 0, High[0] + TickSize * 3, ColorAbsDown);
-        }
+            if (!_lastAbsorption) return;
 
-        private void DetectImbalances()
-        {
-            double bodyTop = Math.Max(Open[0], Close[0]);
-            double bodyBot = Math.Min(Open[0], Close[0]);
-            double upper   = High[0] - bodyTop;
-            double lower   = bodyBot - Low[0];
+            double volRatio = _avgVol > 0 ? Volume[0] / _avgVol : 1.0;
+            double price    = _absUp ? Low[0] - TickSize * 3 : High[0] + TickSize * 3;
 
-            bool bullImb = lower > upper * ImbalanceRatio;
-            bool bearImb = upper > lower * ImbalanceRatio;
-
-            _bullImbalanceCount = bullImb ? _bullImbalanceCount + 1 : 0;
-            _bearImbalanceCount = bearImb ? _bearImbalanceCount + 1 : 0;
-
-            _lastBullImbalance = bullImb;
-            _lastBearImbalance = bearImb;
-
-            if (bullImb)
+            lock (_renderLock)
             {
-                Brush c   = _bullImbalanceCount >= StackedMinCount ? ColorStackedBull : ColorBigBull;
-                string tag = $"OFS_IMB_B_{CurrentBar}";
-                Draw.Dot(this, tag, false, 0, Low[0], c);
-                AddImbalTag(tag);
-                if (_bullImbalanceCount >= StackedMinCount)
-                    Draw.Text(this, $"OFS_SIMB_B_{CurrentBar}", "Stack↑", 0, Low[0] - TickSize * 4, ColorStackedBull);
-            }
-            if (bearImb)
-            {
-                Brush c   = _bearImbalanceCount >= StackedMinCount ? ColorStackedBear : ColorBigBear;
-                string tag = $"OFS_IMB_S_{CurrentBar}";
-                Draw.Dot(this, tag, false, 0, High[0], c);
-                AddImbalTag(tag);
-                if (_bearImbalanceCount >= StackedMinCount)
-                    Draw.Text(this, $"OFS_SIMB_S_{CurrentBar}", "Stack↓", 0, High[0] + TickSize * 4, ColorStackedBear);
+                _diamonds.Enqueue(new DiamondPrint
+                {
+                    BarIdx   = CurrentBar,
+                    Price    = price,
+                    VolRatio = volRatio,
+                    IsBull   = _absUp
+                });
+                if (_diamonds.Count > MaxDiamonds) _diamonds.Dequeue();
             }
         }
 
-        private void DetectLvn(double atrSafe)
+        // ── Triple-A state machine (Fabio Valentini) ──────────────────────────
+        private void RunTripleAMachine(double atrSafe)
         {
-            if (CurrentBar < 10) return;
-            double avgRange = Math.Max(TickSize, ATR(5)[0]);
-            double range    = High[0] - Low[0];
+            int timeout = Math.Max(3, TaaPhaseTimeout);
 
-            bool lvnSeed = Volume[0] < _avgVol * 0.5
-                        && range > avgRange * 0.4
-                        && range < avgRange * 1.2;
-
-            if (lvnSeed) { _lvnPrice = (High[0] + Low[0]) * 0.5; _lvnBar = CurrentBar; }
-
-            bool lvnFresh = !double.IsNaN(_lvnPrice)
-                         && (CurrentBar - _lvnBar) <= LvnLookbackBars;
-
-            _atLvnZone = lvnFresh && Math.Abs(Close[0] - _lvnPrice) <= atrSafe * LvnRetestAtrMult;
-
-            if (_atLvnZone && !lvnSeed)
-            {
-                Draw.HorizontalLine(this, "OFS_LVN", _lvnPrice, ColorLvn, DashStyleHelper.Dot, 1);
-                if (_absUp || _lastBullImbalance)
-                    Draw.Text(this, $"OFS_LVN_REACT_{CurrentBar}", "LVN↑", 0, Low[0] - TickSize * 5, ColorLvn);
-                else if (_absDown || _lastBearImbalance)
-                    Draw.Text(this, $"OFS_LVN_REACT_{CurrentBar}", "LVN↓", 0, High[0] + TickSize * 5, ColorLvn);
-            }
-        }
-
-        private void RunTripleAMachine()
-        {
-            double atr14   = ATR(14)[0];
-            int    timeout = Math.Max(3, TaaPhaseTimeout);
-
-            // LONG machine
+            // LONG machine: Absorption↑ → Accumulation → Aggression↑
             switch (_longPhase)
             {
                 case TaaPhase.None:
@@ -244,11 +202,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     break;
                 case TaaPhase.Absorption:
                     if (CurrentBar - _longPhaseBar > timeout) { _longPhase = TaaPhase.None; break; }
-                    if ((High[0] <= High[1] && Low[0] >= Low[1]) || (High[0] - Low[0]) < atr14 * 0.6)
+                    bool insideLong = High[0] <= High[1] && Low[0] >= Low[1];
+                    bool tightLong  = (High[0] - Low[0]) < atrSafe * 0.6;
+                    if (insideLong || tightLong)
                     {
                         _longPhase = TaaPhase.Accumulation; _longPhaseBar = CurrentBar;
                         if (ShowTaaLabels)
-                            Draw.Text(this, $"OFS_TAA_ACC_L_{CurrentBar}", "② Accum", 0, Low[0] - TickSize * 5, ColorTaaLong);
+                            Draw.Text(this, $"OFS_ACC_L_{CurrentBar}", "② Accum", 0,
+                                Low[0] - TickSize * 5, ColorTaaLong);
                     }
                     break;
                 case TaaPhase.Accumulation:
@@ -257,13 +218,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     {
                         Values[0][0] = Low[0] - TickSize * 2;
                         if (ShowTaaLabels)
-                            Draw.Text(this, $"OFS_TAA_AGG_L_{CurrentBar}", "③ Aggr↑", 0, Low[0] - TickSize * 7, ColorTaaLong);
+                            Draw.Text(this, $"OFS_AGG_L_{CurrentBar}", "③ Aggr↑", 0,
+                                Low[0] - TickSize * 7, ColorTaaLong);
                         _longPhase = TaaPhase.None;
                     }
                     break;
             }
 
-            // SHORT machine
+            // SHORT machine: Absorption↓ → Accumulation → Aggression↓
             switch (_shortPhase)
             {
                 case TaaPhase.None:
@@ -271,11 +233,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     break;
                 case TaaPhase.Absorption:
                     if (CurrentBar - _shortPhaseBar > timeout) { _shortPhase = TaaPhase.None; break; }
-                    if ((High[0] <= High[1] && Low[0] >= Low[1]) || (High[0] - Low[0]) < atr14 * 0.6)
+                    bool insideShort = High[0] <= High[1] && Low[0] >= Low[1];
+                    bool tightShort  = (High[0] - Low[0]) < atrSafe * 0.6;
+                    if (insideShort || tightShort)
                     {
                         _shortPhase = TaaPhase.Accumulation; _shortPhaseBar = CurrentBar;
                         if (ShowTaaLabels)
-                            Draw.Text(this, $"OFS_TAA_ACC_S_{CurrentBar}", "② Accum", 0, High[0] + TickSize * 5, ColorTaaShort);
+                            Draw.Text(this, $"OFS_ACC_S_{CurrentBar}", "② Accum", 0,
+                                High[0] + TickSize * 5, ColorTaaShort);
                     }
                     break;
                 case TaaPhase.Accumulation:
@@ -284,98 +249,288 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     {
                         Values[1][0] = High[0] + TickSize * 2;
                         if (ShowTaaLabels)
-                            Draw.Text(this, $"OFS_TAA_AGG_S_{CurrentBar}", "③ Aggr↓", 0, High[0] + TickSize * 7, ColorTaaShort);
+                            Draw.Text(this, $"OFS_AGG_S_{CurrentBar}", "③ Aggr↓", 0,
+                                High[0] + TickSize * 7, ColorTaaShort);
                         _shortPhase = TaaPhase.None;
                     }
                     break;
             }
         }
 
-        private void DrawBubble(string tag, double price, Brush color)
-        {
-            Draw.Dot(this, tag, false, 0, price, color);
-            _bubbleTags.Enqueue(tag);
-            if (_bubbleTags.Count > MaxBubbles) RemoveDrawObject(_bubbleTags.Dequeue());
-        }
-
-        private void AddImbalTag(string tag)
-        {
-            _imbalTags.Enqueue(tag);
-            if (_imbalTags.Count > MaxImbalances) RemoveDrawObject(_imbalTags.Dequeue());
-        }
-
+        // ── OnMarketData: real-time per-tick big print detection ──────────────
         protected override void OnMarketData(MarketDataEventArgs md)
         {
             if (md == null) return;
             try
             {
-                // Track best bid/ask for directional classification
                 if (md.MarketDataType == MarketDataType.Bid) { _lastBid = md.Price; return; }
                 if (md.MarketDataType == MarketDataType.Ask) { _lastAsk = md.Price; return; }
-
-                if (!ShowBubbles || md.MarketDataType != MarketDataType.Last) return;
+                if (!ShowBubbles)                            return;
+                if (md.MarketDataType != MarketDataType.Last) return;
                 if (md.Volume < (long)Math.Max(1, BigPrintSize)) return;
-                if (double.IsNaN(md.Price) || md.Price <= 0) return;
-                if (CurrentBar < 0) return;
+                if (double.IsNaN(md.Price) || md.Price <= 0)    return;
+                if (CurrentBar < 0)                              return;
 
                 bool isBuy  = !double.IsNaN(_lastAsk) && md.Price >= _lastAsk;
                 bool isSell = !double.IsNaN(_lastBid) && md.Price <= _lastBid;
-                Brush color = isBuy ? ColorBigBull : (isSell ? ColorBigBear : ColorBigBull);
+                if (!isBuy && !isSell) isBuy = true;  // default to buy side if unclassified
 
-                string tag = $"OFS_TICK_{CurrentBar}_{md.Time.Ticks % 1000000}";
-                Draw.Dot(this, tag, false, 0, md.Price, color);
-                _bubbleTags.Enqueue(tag);
-                if (_bubbleTags.Count > MaxBubbles) RemoveDrawObject(_bubbleTags.Dequeue());
+                lock (_renderLock)
+                {
+                    _bubbles.Enqueue(new BubblePrint
+                    {
+                        BarIdx = CurrentBar,
+                        Price  = md.Price,
+                        Volume = md.Volume,
+                        IsBuy  = isBuy
+                    });
+                    if (_bubbles.Count > MaxBubbles) _bubbles.Dequeue();
+                }
             }
-            catch { /* OnMarketData fires ~100x/sec — never let it throw */ }
+            catch { /* fires ~100x/sec — never throw */ }
         }
 
+        // ── SharpDX rendering ─────────────────────────────────────────────────
+        protected override void OnRender(ChartControl chartControl, ChartScale chartScale)
+        {
+            base.OnRender(chartControl, chartScale);
+            if (ChartBars == null || RenderTarget == null || IsInHitTest) return;
+            if (!ShowBubbles && !EnableAbsorption) return;
+
+            try
+            {
+                EnsureDxBrushes(RenderTarget);
+
+                BubblePrint[]  bubbles;
+                DiamondPrint[] diamonds;
+                lock (_renderLock)
+                {
+                    bubbles  = _bubbles.ToArray();
+                    diamonds = _diamonds.ToArray();
+                }
+
+                float opacityF = Math.Max(0.1f, Math.Min(1f, BubbleOpacity / 100f));
+                if (_dxBull   != null) _dxBull.Opacity   = opacityF;
+                if (_dxBear   != null) _dxBear.Opacity   = opacityF;
+                if (_dxAbsUp  != null) _dxAbsUp.Opacity  = opacityF;
+                if (_dxAbsDown!= null) _dxAbsDown.Opacity= opacityF;
+                if (_dxBorder != null) _dxBorder.Opacity = 0.35f;
+
+                // Draw circles (Big Trades)
+                if (ShowBubbles)
+                {
+                    foreach (var b in bubbles)
+                    {
+                        if (b.BarIdx < ChartBars.FromIndex || b.BarIdx > ChartBars.ToIndex) continue;
+                        float r = GetBubbleRadius(b.Volume);
+                        float x = chartControl.GetXByBarIndex(ChartBars, b.BarIdx);
+                        float y = chartScale.GetYByValue(b.Price);
+
+                        var brush   = b.IsBuy ? _dxBull : _dxBear;
+                        var ellipse = new SharpDX.Direct2D1.Ellipse(new SharpDX.Vector2(x, y), r, r);
+                        if (brush != null) RenderTarget.FillEllipse(ellipse, brush);
+                        if (_dxBorder != null) RenderTarget.DrawEllipse(ellipse, _dxBorder, 1.2f);
+                    }
+                }
+
+                // Draw diamonds (Absorption)
+                if (EnableAbsorption)
+                {
+                    foreach (var d in diamonds)
+                    {
+                        if (d.BarIdx < ChartBars.FromIndex || d.BarIdx > ChartBars.ToIndex) continue;
+                        float r = GetDiamondRadius(d.VolRatio);
+                        float x = chartControl.GetXByBarIndex(ChartBars, d.BarIdx);
+                        float y = chartScale.GetYByValue(d.Price);
+
+                        var brush = d.IsBull ? _dxAbsUp : _dxAbsDown;
+                        if (brush == null) continue;
+
+                        SharpDX.Direct2D1.PathGeometry geo  = null;
+                        SharpDX.Direct2D1.GeometrySink sink = null;
+                        try
+                        {
+                            geo  = new SharpDX.Direct2D1.PathGeometry(Core.Globals.D2DFactory);
+                            sink = geo.Open();
+                            sink.BeginFigure(new SharpDX.Vector2(x,     y - r), SharpDX.Direct2D1.FigureBegin.Filled);
+                            sink.AddLine(new SharpDX.Vector2(x + r, y));
+                            sink.AddLine(new SharpDX.Vector2(x,     y + r));
+                            sink.AddLine(new SharpDX.Vector2(x - r, y));
+                            sink.EndFigure(SharpDX.Direct2D1.FigureEnd.Closed);
+                            sink.Close();
+
+                            RenderTarget.FillGeometry(geo, brush);
+                            if (_dxBorder != null) RenderTarget.DrawGeometry(geo, _dxBorder, 1.2f);
+                        }
+                        catch { }
+                        finally
+                        {
+                            sink?.Dispose();
+                            geo?.Dispose();
+                        }
+                    }
+                }
+            }
+            catch { /* render never throws */ }
+        }
+
+        // ── Radius helpers ────────────────────────────────────────────────────
+        // Log-scale: vol just at BigPrintSize → minR; exceptional vol → BubbleMaxRadius
+        private float GetBubbleRadius(long vol)
+        {
+            const float minR = 5f;
+            float maxR = Math.Max(minR + 1, (float)BubbleMaxRadius);
+            if (vol <= 0 || BigPrintSize <= 0) return minR;
+            double logRatio = Math.Log10(1.0 + (double)vol / BigPrintSize);
+            double logMax   = Math.Log10(1.0 + 50.0);  // 50x threshold = max bubble
+            float  r        = minR + (float)(Math.Min(logRatio / logMax, 1.0) * (maxR - minR));
+            return Math.Max(minR, r);
+        }
+
+        // Log-scale: volRatio = vol/avgVol; AbsorptionMultiplier → minR; 5x → DiamondMaxRadius
+        private float GetDiamondRadius(double volRatio)
+        {
+            const float minR = 5f;
+            float maxR = Math.Max(minR + 1, (float)DiamondMaxRadius);
+            double floor    = Math.Max(1, AbsorptionMultiplier);
+            double logRatio = Math.Log10(1.0 + volRatio / floor);
+            double logMax   = Math.Log10(1.0 + 5.0);
+            float  r        = minR + (float)(Math.Min(logRatio / logMax, 1.0) * (maxR - minR));
+            return Math.Max(minR, r);
+        }
+
+        // ── DX brush cache ────────────────────────────────────────────────────
+        private void EnsureDxBrushes(SharpDX.Direct2D1.RenderTarget rt)
+        {
+            if (rt == _cachedRt && _dxBull != null) return;
+            DisposeDxBrushes();
+            _dxBull    = ColorBigBull.ToDxBrush(rt);
+            _dxBear    = ColorBigBear.ToDxBrush(rt);
+            _dxAbsUp   = ColorAbsUp.ToDxBrush(rt);
+            _dxAbsDown = ColorAbsDown.ToDxBrush(rt);
+            _dxBorder  = new SharpDX.Direct2D1.SolidColorBrush(rt,
+                             new SharpDX.Color4(0f, 0f, 0f, 0.35f));
+            _cachedRt  = rt;
+        }
+
+        private void DisposeDxBrushes()
+        {
+            _dxBull?.Dispose();    _dxBull    = null;
+            _dxBear?.Dispose();    _dxBear    = null;
+            _dxAbsUp?.Dispose();   _dxAbsUp   = null;
+            _dxAbsDown?.Dispose(); _dxAbsDown = null;
+            _dxBorder?.Dispose();  _dxBorder  = null;
+            _cachedRt = null;
+        }
+
+        // ── Properties ────────────────────────────────────────────────────────
         #region Properties
-        [NinjaScriptProperty, Display(Name = "Show Bubbles",        GroupName = "Big Trades — Bubbles",  Order = 1)] public bool   ShowBubbles         { get; set; }
-        [NinjaScriptProperty, Range(1, int.MaxValue), Display(Name = "Big Print Min Size", GroupName = "Big Trades — Bubbles",  Order = 2)] public int    BigPrintSize        { get; set; }
-        [NinjaScriptProperty, Display(Name = "Enable Absorption",   GroupName = "Absorption",            Order = 1)] public bool   EnableAbsorption     { get; set; }
-        [NinjaScriptProperty, Range(0.05, 3.0), Display(Name = "Absorption ATR Factor", GroupName = "Absorption", Order = 2)]   public double AbsorptionAtrFactor  { get; set; }
-        [NinjaScriptProperty, Display(Name = "Direction",           GroupName = "Absorption",            Order = 3)] public AbsorptionDirection AbsDir { get; set; }
-        [NinjaScriptProperty, Range(1.0, 20.0), Display(Name = "Big Trade Multiplier", GroupName = "Big Trades — Signals", Order = 1)] public double BigTradeMultiplier  { get; set; }
-        [NinjaScriptProperty, Display(Name = "Enable Imbalances",   GroupName = "Imbalances",            Order = 1)] public bool   EnableImbalance      { get; set; }
-        [NinjaScriptProperty, Range(1.0, 5.0), Display(Name = "Imbalance Ratio",       GroupName = "Imbalances", Order = 2)]   public double ImbalanceRatio       { get; set; }
-        [NinjaScriptProperty, Range(2, 10), Display(Name = "Stacked Min Count",         GroupName = "Imbalances", Order = 3)]   public int    StackedMinCount      { get; set; }
-        [NinjaScriptProperty, Range(5, 200), Display(Name = "Lookback Bars",            GroupName = "TripleA",    Order = 1)]   public int    TripleALookback      { get; set; }
-        [NinjaScriptProperty, Range(3, 50), Display(Name = "Phase Timeout (bars)",      GroupName = "TripleA",    Order = 2)]   public int    TaaPhaseTimeout      { get; set; }
-        [NinjaScriptProperty, Display(Name = "Show Labels",         GroupName = "TripleA Visuals",       Order = 1)] public bool   ShowTaaLabels        { get; set; }
-        [NinjaScriptProperty, Display(Name = "Enable LVN Engine",   GroupName = "LVN",                   Order = 1)] public bool   EnableLvn            { get; set; }
-        [NinjaScriptProperty, Range(10, 500), Display(Name = "LVN Lookback Bars",       GroupName = "LVN", Order = 2)]          public int    LvnLookbackBars      { get; set; }
-        [NinjaScriptProperty, Range(0.1, 2.0), Display(Name = "LVN Retest ATR Mult",   GroupName = "LVN", Order = 3)]          public double LvnRetestAtrMult     { get; set; }
 
-        [XmlIgnore, Display(Name = "Big Bull",        GroupName = "Colors", Order = 1)] public Brush ColorBigBull     { get; set; }
-        [Browsable(false)] public string ColorBigBullSerializable     { get => Serialize.BrushToString(ColorBigBull);     set => ColorBigBull     = Serialize.StringToBrush(value); }
-        [XmlIgnore, Display(Name = "Big Bear",        GroupName = "Colors", Order = 2)] public Brush ColorBigBear     { get; set; }
-        [Browsable(false)] public string ColorBigBearSerializable     { get => Serialize.BrushToString(ColorBigBear);     set => ColorBigBear     = Serialize.StringToBrush(value); }
-        [XmlIgnore, Display(Name = "Absorption ↑",   GroupName = "Colors", Order = 3)] public Brush ColorAbsUp       { get; set; }
-        [Browsable(false)] public string ColorAbsUpSerializable       { get => Serialize.BrushToString(ColorAbsUp);       set => ColorAbsUp       = Serialize.StringToBrush(value); }
-        [XmlIgnore, Display(Name = "Absorption ↓",   GroupName = "Colors", Order = 4)] public Brush ColorAbsDown     { get; set; }
-        [Browsable(false)] public string ColorAbsDownSerializable     { get => Serialize.BrushToString(ColorAbsDown);     set => ColorAbsDown     = Serialize.StringToBrush(value); }
-        [XmlIgnore, Display(Name = "Stacked Bull",   GroupName = "Colors", Order = 5)] public Brush ColorStackedBull { get; set; }
-        [Browsable(false)] public string ColorStackedBullSerializable { get => Serialize.BrushToString(ColorStackedBull); set => ColorStackedBull = Serialize.StringToBrush(value); }
-        [XmlIgnore, Display(Name = "Stacked Bear",   GroupName = "Colors", Order = 6)] public Brush ColorStackedBear { get; set; }
-        [Browsable(false)] public string ColorStackedBearSerializable { get => Serialize.BrushToString(ColorStackedBear); set => ColorStackedBear = Serialize.StringToBrush(value); }
-        [XmlIgnore, Display(Name = "Triple-A Long",  GroupName = "Colors", Order = 7)] public Brush ColorTaaLong     { get; set; }
-        [Browsable(false)] public string ColorTaaLongSerializable     { get => Serialize.BrushToString(ColorTaaLong);     set => ColorTaaLong     = Serialize.StringToBrush(value); }
-        [XmlIgnore, Display(Name = "Triple-A Short", GroupName = "Colors", Order = 8)] public Brush ColorTaaShort    { get; set; }
-        [Browsable(false)] public string ColorTaaShortSerializable    { get => Serialize.BrushToString(ColorTaaShort);    set => ColorTaaShort    = Serialize.StringToBrush(value); }
-        [XmlIgnore, Display(Name = "LVN",            GroupName = "Colors", Order = 9)] public Brush ColorLvn         { get; set; }
-        [Browsable(false)] public string ColorLvnSerializable         { get => Serialize.BrushToString(ColorLvn);         set => ColorLvn         = Serialize.StringToBrush(value); }
+        // — Big Trades —
+        [NinjaScriptProperty]
+        [Display(Name = "Show Bubbles", GroupName = "Big Trades", Order = 1)]
+        public bool ShowBubbles { get; set; }
 
-        [Browsable(false)] public Series<double> PhaseLong            => Values[0];
-        [Browsable(false)] public Series<double> PhaseShort           => Values[1];
-        [Browsable(false)] public bool   LastAbsorption               => _lastAbsorption;
-        [Browsable(false)] public double LastAbsorptionPrice          => _lastAbsorptionPrice;
-        [Browsable(false)] public bool   LastBullImbalance            => _lastBullImbalance;
-        [Browsable(false)] public bool   LastBearImbalance            => _lastBearImbalance;
-        [Browsable(false)] public bool   StackedBullImbalance         => _bullImbalanceCount >= StackedMinCount;
-        [Browsable(false)] public bool   StackedBearImbalance         => _bearImbalanceCount >= StackedMinCount;
-        [Browsable(false)] public bool   AtLvnZone                    => _atLvnZone;
-        [Browsable(false)] public double LvnPrice                     => _lvnPrice;
+        [NinjaScriptProperty]
+        [Range(1, int.MaxValue)]
+        [Display(Name = "Min Print Size (contracts)", GroupName = "Big Trades", Order = 2)]
+        public int BigPrintSize { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1.0, 20.0)]
+        [Display(Name = "Sensitivity (× avg vol)", GroupName = "Big Trades", Order = 3)]
+        public double BigTradeMultiplier { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(10, 80)]
+        [Display(Name = "Max Bubble Size (px)", GroupName = "Big Trades", Order = 4)]
+        public int BubbleMaxRadius { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(10, 100)]
+        [Display(Name = "Opacity %", GroupName = "Big Trades", Order = 5)]
+        public int BubbleOpacity { get; set; }
+
+        // — Absorption —
+        [NinjaScriptProperty]
+        [Display(Name = "Enable Absorption", GroupName = "Absorption", Order = 1)]
+        public bool EnableAbsorption { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1.0, 15.0)]
+        [Display(Name = "Sensitivity (× avg vol)", GroupName = "Absorption", Order = 2)]
+        public double AbsorptionMultiplier { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(0.05, 1.0)]
+        [Display(Name = "Max Range (× ATR)", GroupName = "Absorption", Order = 3)]
+        public double AbsorptionAtrFactor { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Direction", GroupName = "Absorption", Order = 4)]
+        public AbsorptionDirection AbsDir { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(10, 80)]
+        [Display(Name = "Max Diamond Size (px)", GroupName = "Absorption", Order = 5)]
+        public int DiamondMaxRadius { get; set; }
+
+        // — Triple-A —
+        [NinjaScriptProperty]
+        [Display(Name = "Enable Triple-A", GroupName = "Triple-A", Order = 1)]
+        public bool EnableTripleA { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(5, 200)]
+        [Display(Name = "Lookback Bars", GroupName = "Triple-A", Order = 2)]
+        public int TripleALookback { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(3, 50)]
+        [Display(Name = "Phase Timeout (bars)", GroupName = "Triple-A", Order = 3)]
+        public int TaaPhaseTimeout { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Show Labels", GroupName = "Triple-A", Order = 4)]
+        public bool ShowTaaLabels { get; set; }
+
+        // — Colors —
+        [XmlIgnore, Display(Name = "Big Buy",       GroupName = "Colors", Order = 1)]
+        public Brush ColorBigBull { get; set; }
+        [Browsable(false)]
+        public string ColorBigBullSerializable { get => Serialize.BrushToString(ColorBigBull); set => ColorBigBull = Serialize.StringToBrush(value); }
+
+        [XmlIgnore, Display(Name = "Big Sell",      GroupName = "Colors", Order = 2)]
+        public Brush ColorBigBear { get; set; }
+        [Browsable(false)]
+        public string ColorBigBearSerializable { get => Serialize.BrushToString(ColorBigBear); set => ColorBigBear = Serialize.StringToBrush(value); }
+
+        [XmlIgnore, Display(Name = "Absorption ↑",  GroupName = "Colors", Order = 3)]
+        public Brush ColorAbsUp { get; set; }
+        [Browsable(false)]
+        public string ColorAbsUpSerializable { get => Serialize.BrushToString(ColorAbsUp); set => ColorAbsUp = Serialize.StringToBrush(value); }
+
+        [XmlIgnore, Display(Name = "Absorption ↓",  GroupName = "Colors", Order = 4)]
+        public Brush ColorAbsDown { get; set; }
+        [Browsable(false)]
+        public string ColorAbsDownSerializable { get => Serialize.BrushToString(ColorAbsDown); set => ColorAbsDown = Serialize.StringToBrush(value); }
+
+        [XmlIgnore, Display(Name = "Triple-A Long",  GroupName = "Colors", Order = 5)]
+        public Brush ColorTaaLong { get; set; }
+        [Browsable(false)]
+        public string ColorTaaLongSerializable { get => Serialize.BrushToString(ColorTaaLong); set => ColorTaaLong = Serialize.StringToBrush(value); }
+
+        [XmlIgnore, Display(Name = "Triple-A Short", GroupName = "Colors", Order = 6)]
+        public Brush ColorTaaShort { get; set; }
+        [Browsable(false)]
+        public string ColorTaaShortSerializable { get => Serialize.BrushToString(ColorTaaShort); set => ColorTaaShort = Serialize.StringToBrush(value); }
+
+        // — Cross-indicator (hidden) —
+        [Browsable(false)] public Series<double> PhaseLong           => Values[0];
+        [Browsable(false)] public Series<double> PhaseShort          => Values[1];
+        [Browsable(false)] public bool   LastAbsorption              => _lastAbsorption;
+        [Browsable(false)] public double LastAbsorptionPrice         => _lastAbsorptionPrice;
+
         #endregion
     }
 }
