@@ -26,6 +26,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Description = "TradingView-style consolidated OrderFlow + MarketVolume + VolumeProfile + VolumeFilter.";
                 Calculate = Calculate.OnBarClose;
                 IsOverlay = false;
+                MaxLookBack = MaximumBarsLookBack.Infinite;
 
                 ShowOrderFlow = true;
                 ShowMarketVolume = true;
