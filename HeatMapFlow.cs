@@ -1088,23 +1088,31 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 		// !- necesario para obtener el libro de ordenes(Level II)
 		protected override void OnMarketDepth(MarketDepthEventArgs depthMarketArgs)
 		{
-			if (depthMarketArgs == null) return;
-			lock (_dataLock)
+			if (depthMarketArgs == null || bookMap == null || orderBookLadder == null || Bars == null) return;
+			try
 			{
-				bookMap.onMarketDepth(depthMarketArgs);
-				orderBookLadder.AddOrder(Bars.LastPrice, depthMarketArgs);
+				lock (_dataLock)
+				{
+					bookMap.onMarketDepth(depthMarketArgs);
+					orderBookLadder.AddOrder(Bars.LastPrice, depthMarketArgs);
+				}
+				ForceRefresh();
 			}
-			ForceRefresh();
+			catch { /* depth events fire rapidly — never let them throw */ }
 		}
 		protected override void OnMarketData(MarketDataEventArgs MarketArgs)
 		{
-			if (MarketArgs == null) return;
-			lock (_dataLock)
+			if (MarketArgs == null || wyckoffBars == null || marketOrderLadder == null) return;
+			try
 			{
-				if (!wyckoffBars.onMarketData(MarketArgs))
-					return;
-				marketOrderLadder.AddPrice(MarketArgs);
+				lock (_dataLock)
+				{
+					if (!wyckoffBars.onMarketData(MarketArgs))
+						return;
+					marketOrderLadder.AddPrice(MarketArgs);
+				}
 			}
+			catch { /* market data fires ~100x/sec — never let it throw */ }
 		}
 		
 		#region Properties

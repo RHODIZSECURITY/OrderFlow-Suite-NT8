@@ -2,7 +2,7 @@
 
 ## Contexto General
 - **Proyecto**: NinjaTrader 8 C# indicators — suite profesional de Order Flow, Smart Money Concepts y análisis de volumen
-- **Versión actual**: 1.2.0
+- **Versión actual**: 1.3.0
 - **Namespace**: `NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ`
 - **CI/CD**: Push a `main` → GitHub Actions genera ZIP versionado → crea Release en GitHub automáticamente
 - **Rama de trabajo**: `main` — nunca crear feature branches permanentes
@@ -103,6 +103,17 @@
 | `LevelsSuite.cs` | ORB signals acumulaban draw objects indefinidamente | `Queue<string> _orbSignalTags` con cap 200 |
 | `HeatMapFlow.cs` | `filterBigPendingOrders` opacity > 1.0 posible | `Math.Min(1f, ...)` |
 | `HeatMapFlow.cs` | `marketOrderLadder` no reseteado en DataLoaded | `= new PriceLadder()` en DataLoaded |
+| `TrendSeries.cs` | `OnRender` sin try-catch — SharpDX throw = chart freeze | `try/catch` outer + inner + NaN guards por segmento |
+| `OrderFlowSignals.cs` | `OnMarketData` sin try-catch — malformed tick = crash | `try/catch` silent + null/price guards (dispara ~100x/seg) |
+| `HeatMapFlow.cs` | `OnMarketDepth/OnMarketData` sin try-catch ni null-check completo | `try/catch` + guards de `bookMap/orderBookLadder/wyckoffBars/marketOrderLadder` |
+| `VolumeProfile.cs` | Delta aproximado con `Close>=Open` aun con OrderFlow+ | Detección `VolumetricBarsType` → `BuyingVolume/SellingVolume` real; fallback a estimación |
+
+---
+
+## OrderFlow+ (suscripción NinjaTrader)
+- **VolumeProfile** detecta `BarsArray[0].BarsType as VolumetricBarsType` y usa `Volumes[i].BuyingVolume/SellingVolume` para delta real bid/ask cuando el usuario añade barras volumétricas al chart.
+- Fallback automático a `Close>=Open ? Volume : 0` si no hay volumetric bars → nunca crashea, nunca requiere OrderFlow+.
+- Helper: `EnsureVolumetricProbe()` (lazy, una sola vez) + `GetBarDelta(out upVol, out dnVol)` (silencioso ante excepciones).
 
 ---
 

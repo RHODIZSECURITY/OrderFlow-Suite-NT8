@@ -304,20 +304,28 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
         protected override void OnMarketData(MarketDataEventArgs md)
         {
-            // Track best bid/ask for directional classification
-            if (md.MarketDataType == MarketDataType.Bid) { _lastBid = md.Price; return; }
-            if (md.MarketDataType == MarketDataType.Ask) { _lastAsk = md.Price; return; }
+            if (md == null) return;
+            try
+            {
+                // Track best bid/ask for directional classification
+                if (md.MarketDataType == MarketDataType.Bid) { _lastBid = md.Price; return; }
+                if (md.MarketDataType == MarketDataType.Ask) { _lastAsk = md.Price; return; }
 
-            if (!ShowBubbles || md.MarketDataType != MarketDataType.Last || md.Volume < (long)Math.Max(1, BigPrintSize)) return;
+                if (!ShowBubbles || md.MarketDataType != MarketDataType.Last) return;
+                if (md.Volume < (long)Math.Max(1, BigPrintSize)) return;
+                if (double.IsNaN(md.Price) || md.Price <= 0) return;
+                if (CurrentBar < 0) return;
 
-            bool isBuy  = !double.IsNaN(_lastAsk) && md.Price >= _lastAsk;
-            bool isSell = !double.IsNaN(_lastBid) && md.Price <= _lastBid;
-            Brush color = isBuy ? ColorBigBull : (isSell ? ColorBigBear : ColorBigBull);
+                bool isBuy  = !double.IsNaN(_lastAsk) && md.Price >= _lastAsk;
+                bool isSell = !double.IsNaN(_lastBid) && md.Price <= _lastBid;
+                Brush color = isBuy ? ColorBigBull : (isSell ? ColorBigBear : ColorBigBull);
 
-            string tag = $"OFS_TICK_{CurrentBar}_{md.Time.Ticks % 1000000}";
-            Draw.Dot(this, tag, false, 0, md.Price, color);
-            _bubbleTags.Enqueue(tag);
-            if (_bubbleTags.Count > MaxBubbles) RemoveDrawObject(_bubbleTags.Dequeue());
+                string tag = $"OFS_TICK_{CurrentBar}_{md.Time.Ticks % 1000000}";
+                Draw.Dot(this, tag, false, 0, md.Price, color);
+                _bubbleTags.Enqueue(tag);
+                if (_bubbleTags.Count > MaxBubbles) RemoveDrawObject(_bubbleTags.Dequeue());
+            }
+            catch { /* OnMarketData fires ~100x/sec — never let it throw */ }
         }
 
         #region Properties

@@ -178,36 +178,59 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             var renderTarget = RenderTarget;
             if (renderTarget == null) return;
 
-            var fillBrush = _bbFillColor.Clone();
-            fillBrush.Freeze();
-            var dx2Fill = fillBrush.ToDxBrush(renderTarget);
-
-            int firstBar = Math.Max(ChartBars.FromIndex, _bbLength);
-            int lastBar  = ChartBars.ToIndex;
-
-            for (int i = firstBar; i <= lastBar - 1; i++)
+            SharpDX.Direct2D1.Brush dx2Fill = null;
+            try
             {
-                int   x1  = chartControl.GetXByBarIndex(ChartBars, i);
-                int   x2  = chartControl.GetXByBarIndex(ChartBars, i + 1);
-                float y1u = chartScale.GetYByValue(Values[10].GetValueAt(i));
-                float y2u = chartScale.GetYByValue(Values[10].GetValueAt(i + 1));
-                float y1l = chartScale.GetYByValue(Values[11].GetValueAt(i));
-                float y2l = chartScale.GetYByValue(Values[11].GetValueAt(i + 1));
+                var fillBrush = _bbFillColor.Clone();
+                fillBrush.Freeze();
+                dx2Fill = fillBrush.ToDxBrush(renderTarget);
 
-                var geo  = new SharpDX.Direct2D1.PathGeometry(Core.Globals.D2DFactory);
-                var sink = geo.Open();
-                sink.BeginFigure(new SharpDX.Vector2(x1, y1u), SharpDX.Direct2D1.FigureBegin.Filled);
-                sink.AddLine(new SharpDX.Vector2(x2, y2u));
-                sink.AddLine(new SharpDX.Vector2(x2, y2l));
-                sink.AddLine(new SharpDX.Vector2(x1, y1l));
-                sink.EndFigure(SharpDX.Direct2D1.FigureEnd.Closed);
-                sink.Close();
-                sink.Dispose();
+                int firstBar = Math.Max(ChartBars.FromIndex, _bbLength);
+                int lastBar  = ChartBars.ToIndex;
 
-                renderTarget.FillGeometry(geo, dx2Fill);
-                geo.Dispose();
+                for (int i = firstBar; i <= lastBar - 1; i++)
+                {
+                    double u1 = Values[10].GetValueAt(i);
+                    double u2 = Values[10].GetValueAt(i + 1);
+                    double l1 = Values[11].GetValueAt(i);
+                    double l2 = Values[11].GetValueAt(i + 1);
+                    if (double.IsNaN(u1) || double.IsNaN(u2) || double.IsNaN(l1) || double.IsNaN(l2)) continue;
+
+                    SharpDX.Direct2D1.PathGeometry geo = null;
+                    SharpDX.Direct2D1.GeometrySink sink = null;
+                    try
+                    {
+                        int   x1  = chartControl.GetXByBarIndex(ChartBars, i);
+                        int   x2  = chartControl.GetXByBarIndex(ChartBars, i + 1);
+                        float y1u = chartScale.GetYByValue(u1);
+                        float y2u = chartScale.GetYByValue(u2);
+                        float y1l = chartScale.GetYByValue(l1);
+                        float y2l = chartScale.GetYByValue(l2);
+
+                        geo  = new SharpDX.Direct2D1.PathGeometry(Core.Globals.D2DFactory);
+                        sink = geo.Open();
+                        sink.BeginFigure(new SharpDX.Vector2(x1, y1u), SharpDX.Direct2D1.FigureBegin.Filled);
+                        sink.AddLine(new SharpDX.Vector2(x2, y2u));
+                        sink.AddLine(new SharpDX.Vector2(x2, y2l));
+                        sink.AddLine(new SharpDX.Vector2(x1, y1l));
+                        sink.EndFigure(SharpDX.Direct2D1.FigureEnd.Closed);
+                        sink.Close();
+
+                        renderTarget.FillGeometry(geo, dx2Fill);
+                    }
+                    catch { /* skip malformed segment, keep chart alive */ }
+                    finally
+                    {
+                        if (sink != null) sink.Dispose();
+                        if (geo  != null) geo.Dispose();
+                    }
+                }
             }
-            dx2Fill.Dispose();
+            catch { /* render never throws — chart must stay alive */ }
+            finally
+            {
+                if (dx2Fill != null) dx2Fill.Dispose();
+            }
         }
 
         #region Properties
