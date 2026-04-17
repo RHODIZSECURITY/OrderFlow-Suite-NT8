@@ -155,8 +155,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             bool absorbed = highVol && move < atrSafe * AbsorptionAtrFactor;
             if (!absorbed) return;
 
-            bool bull = Close[0] >= Open[0] || Low[0] == Low[1];
-            bool bear = Close[0] <  Open[0] || High[0] == High[1];
+            bool bull = Close[0] >= Open[0];
+            bool bear = Close[0] <  Open[0];
 
             _absUp   = bull && AbsDir != AbsorptionDirection.BearOnly;
             _absDown = bear && AbsDir != AbsorptionDirection.BullOnly;

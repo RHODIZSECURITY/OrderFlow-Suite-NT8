@@ -96,12 +96,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     // Classic pivot high/low
                     bool isPH = true;
                     double pivH = High[len];
-                    for (int i = 0; i < len * 2 + 1; i++) { if (i == len) continue; if (High[i] >= pivH) { isPH = false; break; } }
+                    for (int i = 0; i < len * 2 + 1; i++) { if (i == len) continue; if (High[i] > pivH) { isPH = false; break; } }
                     if (isPH) detPH = pivH;
 
                     bool isPL = true;
                     double pivL = Low[len];
-                    for (int i = 0; i < len * 2 + 1; i++) { if (i == len) continue; if (Low[i] <= pivL) { isPL = false; break; } }
+                    for (int i = 0; i < len * 2 + 1; i++) { if (i == len) continue; if (Low[i] < pivL) { isPL = false; break; } }
                     if (isPL) detPL = pivL;
                     break;
 

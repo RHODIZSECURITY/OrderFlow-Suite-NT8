@@ -120,7 +120,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (OverlapMode == ObOverlapMode.Merge)
                 MergeZone(_fvgZones, zone);
             else
-                _fvgZones.Add(zone);
+                AddZoneCapped(_fvgZones, zone);
             _lastFvgTop = zone.Top;
             _lastFvgBottom = zone.Bottom;
 
@@ -151,7 +151,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (OverlapMode == ObOverlapMode.Merge)
                 MergeZone(_obZones, zone);
             else
-                _obZones.Add(zone);
+                AddZoneCapped(_obZones, zone);
             _lastObTop = zone.Top;
             _lastObBottom = zone.Bottom;
 
@@ -238,6 +238,20 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         }
 
         private const int MaxZones = 300;
+
+        private void AddZoneCapped(List<Zone> zones, Zone incoming)
+        {
+            if (zones.Count >= MaxZones)
+            {
+                int oldest = 0;
+                for (int j = 1; j < zones.Count; j++)
+                    if (zones[j].StartBar < zones[oldest].StartBar) oldest = j;
+                RemoveDrawObject(zones[oldest].DrawTag);
+                if (!string.IsNullOrEmpty(zones[oldest].LabelTag)) RemoveDrawObject(zones[oldest].LabelTag);
+                zones.RemoveAt(oldest);
+            }
+            zones.Add(incoming);
+        }
 
         private void MergeZone(List<Zone> zones, Zone incoming)
         {
