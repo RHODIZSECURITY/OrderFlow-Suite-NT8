@@ -304,7 +304,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (ShowLabels)
             {
                 string lbl  = z.IsSupport ? "SUPPORT" : "RESISTANCE";
-                double yLbl = z.Top;
+                double yLbl = (z.Top + z.Bot) * 0.5;
                 Draw.Text(this, z.LblTag, true, lbl, ago, yLbl, 0,
                     Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
                     Brushes.Transparent, Brushes.Transparent, 0);
