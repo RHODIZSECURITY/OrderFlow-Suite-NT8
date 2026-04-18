@@ -70,8 +70,11 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 ShowLabels       = true;
                 ShowBreakLines   = true;
                 // LuxAlgo palette: #089981 teal for support, #F23645 coral for resistance
-                SupportColor     = new SolidColorBrush(Color.FromRgb(  8, 153, 129));
-                ResistColor      = new SolidColorBrush(Color.FromRgb(242,  54,  69));
+                // Frozen = thread-safe for OnBarUpdate (data thread) accessing WPF brush
+                var sc = new SolidColorBrush(Color.FromArgb(255,   8, 153, 129)); sc.Freeze();
+                var rc = new SolidColorBrush(Color.FromArgb(255, 242,  54,  69)); rc.Freeze();
+                SupportColor = sc;
+                ResistColor  = rc;
             }
             else if (State == State.DataLoaded)
             {
@@ -293,7 +296,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             {
                 // Same brush for outline and fill — passing Brushes.Transparent as outline
                 // causes NT8 to fall back to a default (blue) color; use fill for both instead
-                Draw.Rectangle(this, z.Tag, false, ago, z.Top, 0, z.Bot, fill, fill, ZoneOpacity);
+                Draw.Rectangle(this, z.Tag, false, ago, z.Top, -500, z.Bot, fill, fill, ZoneOpacity);
             }
             else
             {
