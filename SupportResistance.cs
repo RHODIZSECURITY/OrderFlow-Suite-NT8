@@ -294,9 +294,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
             if (DisplayType == SrDisplayType.Zones)
             {
-                // Same brush for outline and fill — passing Brushes.Transparent as outline
-                // causes NT8 to fall back to a default (blue) color; use fill for both instead
-                Draw.Rectangle(this, z.Tag, false, ago, z.Top, -500, z.Bot, fill, fill, ZoneOpacity);
+                Draw.Rectangle(this, z.Tag, false, ago, z.Top, -500, z.Bot, Brushes.Transparent, fill, ZoneOpacity);
             }
             else
             {
@@ -306,10 +304,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (ShowLabels)
             {
                 string lbl  = z.IsSupport ? "SUPPORT" : "RESISTANCE";
-                double yLbl = (z.Top + z.Bot) * 0.5;
-                // Label at barsAgo=0 (right/current edge, matches LuxAlgo text_halign=left on right side)
-                Draw.Text(this, z.LblTag, true, lbl, 0, yLbl, 0,
-                    Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Right,
+                double yLbl = z.Top;
+                Draw.Text(this, z.LblTag, true, lbl, ago, yLbl, 0,
+                    Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
                     Brushes.Transparent, Brushes.Transparent, 0);
             }
         }
