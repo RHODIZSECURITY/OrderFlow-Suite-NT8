@@ -39,6 +39,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         private double _lastObTop     = double.NaN;
         private double _lastObBottom  = double.NaN;
 
+        // Swing tracking for pivot+BOS OB detection
+        private double _swingHigh    = double.NaN;
+        private int    _swingHighBar = -1;
+        private bool   _highBosUsed  = false;
+        private double _swingLow     = double.NaN;
+        private int    _swingLowBar  = -1;
+        private bool   _lowBosUsed   = false;
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -80,6 +88,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 _fvgZones.Clear();
                 _obZones.Clear();
                 _breakerBlocks.Clear();
+                _swingHigh = double.NaN; _swingHighBar = -1; _highBosUsed = false;
+                _swingLow  = double.NaN; _swingLowBar  = -1; _lowBosUsed  = false;
             }
         }
 
@@ -152,20 +162,63 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             }
         }
 
-        // ── Order Blocks ─────────────────────────────────────────────────────────
+        // ── Order Blocks — Pivot + BOS detection (LuxAlgo/ICT algorithm) ──────────
 
         private void ProcessOrderBlocks()
         {
-            if (CurrentBar < PivotStrength + 2) return;
+            int len = PivotStrength;
+            if (CurrentBar < len * 2 + 2) return;
 
-            bool bullImpulse = Close[0] > Open[0] && Close[0] > High[1] && Open[1] > Close[1];
-            bool bearImpulse = Close[0] < Open[0] && Close[0] < Low[1]  && Open[1] < Close[1];
-            if (!bullImpulse && !bearImpulse) return;
+            // Step 1: update tracked swings when a new pivot is confirmed
+            double ph = DetectPivotHigh(len);
+            if (!double.IsNaN(ph)) { _swingHigh = ph; _swingHighBar = CurrentBar - len; _highBosUsed = false; }
 
-            const int src = 1;
-            double bodyHi = Math.Max(Open[src], Close[src]);
-            double bodyLo = Math.Min(Open[src], Close[src]);
-            double fullR  = High[src] - Low[src];
+            double pl = DetectPivotLow(len);
+            if (!double.IsNaN(pl)) { _swingLow = pl; _swingLowBar = CurrentBar - len; _lowBosUsed = false; }
+
+            // Step 2: BOS UP → Bullish OB
+            // When close breaks above last swing high, find bar with lowest low near that swing
+            if (!double.IsNaN(_swingHigh) && !_highBosUsed && Close[0] > _swingHigh)
+            {
+                _highBosUsed      = true;
+                int swingBarsAgo  = CurrentBar - _swingHighBar;
+                int obBarsAgo     = FindExtremeCandle(swingBarsAgo, swingBarsAgo + len * 4, isBull: true);
+                if (obBarsAgo > 0) RegisterOB(true, obBarsAgo);
+            }
+
+            // Step 3: BOS DOWN → Bearish OB
+            // When close breaks below last swing low, find bar with highest high near that swing
+            if (!double.IsNaN(_swingLow) && !_lowBosUsed && Close[0] < _swingLow)
+            {
+                _lowBosUsed       = true;
+                int swingBarsAgo  = CurrentBar - _swingLowBar;
+                int obBarsAgo     = FindExtremeCandle(swingBarsAgo, swingBarsAgo + len * 4, isBull: false);
+                if (obBarsAgo > 0) RegisterOB(false, obBarsAgo);
+            }
+        }
+
+        // Find bar index (as barsAgo) with lowest low (bull) or highest high (bear)
+        // in the range [startBarsAgo, endBarsAgo]
+        private int FindExtremeCandle(int startBarsAgo, int endBarsAgo, bool isBull)
+        {
+            int    best    = -1;
+            double bestVal = isBull ? double.MaxValue : double.MinValue;
+            int    cap     = Math.Min(endBarsAgo, CurrentBar - 1);
+
+            for (int i = startBarsAgo; i <= cap; i++)
+            {
+                double v = isBull ? Low[i] : High[i];
+                if (isBull ? v < bestVal : v > bestVal) { bestVal = v; best = i; }
+            }
+            return best;
+        }
+
+        // Build zone from OB candle and add to list
+        private void RegisterOB(bool isBull, int srcBarsAgo)
+        {
+            double bodyHi = Math.Max(Open[srcBarsAgo], Close[srcBarsAgo]);
+            double bodyLo = Math.Min(Open[srcBarsAgo], Close[srcBarsAgo]);
+            double fullR  = High[srcBarsAgo] - Low[srcBarsAgo];
 
             double hi, lo;
             switch (RangeMode)
@@ -173,43 +226,51 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 case ObRangeMode.BodyOnly:
                     hi = bodyHi; lo = bodyLo; break;
                 case ObRangeMode.Threshold75:
-                    hi = bodyHi;
-                    lo = High[src] - 0.75 * fullR;
-                    break;
+                    hi = bodyHi; lo = High[srcBarsAgo] - 0.75 * fullR; break;
                 case ObRangeMode.Threshold50:
-                    hi = bodyHi;
-                    lo = (High[src] + Low[src]) * 0.5;
-                    break;
+                    hi = bodyHi; lo = (High[srcBarsAgo] + Low[srcBarsAgo]) * 0.5; break;
                 default: // FullCandle
-                    hi = High[src]; lo = Low[src]; break;
+                    hi = High[srcBarsAgo]; lo = Low[srcBarsAgo]; break;
             }
-            if (hi <= lo) return;
+            if (hi - lo < TickSize) return;
 
-            string obTag  = $"SMC_OB_{(bullImpulse ? "B" : "S")}_{CurrentBar}";
-            string lblTag = $"SMC_OB_LBL_{CurrentBar}";
-            // StartBar = source candle (1 bar ago), so barsBack = CurrentBar - StartBar is always correct
-            Zone zone = new Zone
-            {
-                StartBar = CurrentBar - 1,
-                Top = hi, Bottom = lo,
-                Bull = bullImpulse,
-                DrawTag = obTag, LabelTag = lblTag
-            };
+            int    absBar = CurrentBar - srcBarsAgo;
+            string obTag  = $"SMC_OB_{(isBull ? "B" : "S")}_{absBar}";
+            string lblTag = $"SMC_OB_LBL_{absBar}";
+
+            Zone zone = new Zone { StartBar = absBar, Top = hi, Bottom = lo, Bull = isBull, DrawTag = obTag, LabelTag = lblTag };
 
             switch (OverlapMode)
             {
-                case ObOverlapMode.Merge:
-                    MergeZone(_obZones, zone); break;
-                case ObOverlapMode.HideOldest:
-                    AddHideOldest(_obZones, zone); break;
+                case ObOverlapMode.Merge:       MergeZone(_obZones, zone); break;
+                case ObOverlapMode.HideOldest:  AddHideOldest(_obZones, zone); break;
                 case ObOverlapMode.HideYoungest:
                     if (!HasOverlap(_obZones, zone)) AddZoneCapped(_obZones, zone); break;
-                default: // None
-                    AddZoneCapped(_obZones, zone); break;
+                default: AddZoneCapped(_obZones, zone); break;
             }
-
             _lastObTop    = zone.Top;
             _lastObBottom = zone.Bottom;
+        }
+
+        // Pivot high: bar[len] is highest — right (newer) strict >=, left (older) lenient >
+        private double DetectPivotHigh(int len)
+        {
+            double h = High[len];
+            for (int i = 0; i < len; i++)
+                if (High[i] >= h) return double.NaN;
+            for (int i = len + 1; i <= len * 2; i++)
+                if (High[i] > h) return double.NaN;
+            return h;
+        }
+
+        private double DetectPivotLow(int len)
+        {
+            double l = Low[len];
+            for (int i = 0; i < len; i++)
+                if (Low[i] <= l) return double.NaN;
+            for (int i = len + 1; i <= len * 2; i++)
+                if (Low[i] < l) return double.NaN;
+            return l;
         }
 
         // Remove OB when price closes inside or through the zone
