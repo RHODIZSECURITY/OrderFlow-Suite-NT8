@@ -60,6 +60,10 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 FvgEnabled      = true;
                 MinFvgTicks     = 2;
                 QualityFilter   = FvgQuality.Displaced;
+                FvgTrendAlign   = true;
+                FvgVolFilter    = false;
+                FvgVolMult      = 1.0;
+                FvgVolSmaLen    = 20;
                 FvgVisibleAbove = 3;
                 FvgVisibleBelow = 3;
                 FvgOpacity      = 20;
@@ -133,6 +137,21 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             double atr  = ATR(14)[0];
             if (QualityFilter == FvgQuality.Displaced && !(atr > 0 && body >= atr * 0.4)) return;
             if (QualityFilter == FvgQuality.Strong    && !(atr > 0 && body >= atr * 0.7)) return;
+
+            // Trend bar alignment: impulse bar[1] must be bullish for bull gap, bearish for bear gap
+            if (FvgTrendAlign)
+            {
+                bool bullBar1 = Close[1] > Open[1];
+                if (bullGap && !bullBar1) return;
+                if (bearGap &&  bullBar1) return;
+            }
+
+            // Volume filter: impulse bar[1] volume must exceed SMA × multiplier
+            if (FvgVolFilter)
+            {
+                double avgVol = SMA(Volume, FvgVolSmaLen)[1];
+                if (avgVol > 0 && Volume[1] < avgVol * FvgVolMult) return;
+            }
 
             string fvgTag = $"SMC_FVG_{(bullGap ? "B" : "S")}_{CurrentBar}";
             Zone zone = new Zone { StartBar = CurrentBar, Top = top, Bottom = bot, Bull = bullGap, DrawTag = fvgTag };
@@ -517,21 +536,33 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         [NinjaScriptProperty, Display(Name = "Quality Filter", GroupName = "FVG Delta", Order = 3)]
         public FvgQuality QualityFilter { get; set; }
 
-        [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible FVG Above", GroupName = "FVG Delta", Order = 4)]
+        [NinjaScriptProperty, Display(Name = "Trend Bar Alignment", GroupName = "FVG Delta", Order = 4)]
+        public bool FvgTrendAlign { get; set; }
+
+        [NinjaScriptProperty, Display(Name = "Volume Filter",       GroupName = "FVG Delta", Order = 5)]
+        public bool FvgVolFilter { get; set; }
+
+        [NinjaScriptProperty, Range(0.1, 5.0), Display(Name = "Vol Mult",       GroupName = "FVG Delta", Order = 6)]
+        public double FvgVolMult { get; set; }
+
+        [NinjaScriptProperty, Range(5, 100), Display(Name = "Vol SMA Length",   GroupName = "FVG Delta", Order = 7)]
+        public int FvgVolSmaLen { get; set; }
+
+        [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible FVG Above", GroupName = "FVG Delta", Order = 8)]
         public int FvgVisibleAbove { get; set; }
 
-        [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible FVG Below", GroupName = "FVG Delta", Order = 5)]
+        [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible FVG Below", GroupName = "FVG Delta", Order = 9)]
         public int FvgVisibleBelow { get; set; }
 
-        [NinjaScriptProperty, Range(0, 100), Display(Name = "FVG Opacity", GroupName = "FVG Delta", Order = 6)]
+        [NinjaScriptProperty, Range(0, 100), Display(Name = "FVG Opacity", GroupName = "FVG Delta", Order = 10)]
         public int FvgOpacity { get; set; }
 
-        [XmlIgnore, Display(Name = "FVG Bull Color", GroupName = "FVG Delta", Order = 7)]
+        [XmlIgnore, Display(Name = "FVG Bull Color", GroupName = "FVG Delta", Order = 11)]
         public Brush FvgBullColor { get; set; }
         [Browsable(false)]
         public string FvgBullColorSerializable { get => Serialize.BrushToString(FvgBullColor); set => FvgBullColor = Serialize.StringToBrush(value); }
 
-        [XmlIgnore, Display(Name = "FVG Bear Color", GroupName = "FVG Delta", Order = 8)]
+        [XmlIgnore, Display(Name = "FVG Bear Color", GroupName = "FVG Delta", Order = 12)]
         public Brush FvgBearColor { get; set; }
         [Browsable(false)]
         public string FvgBearColorSerializable { get => Serialize.BrushToString(FvgBearColor); set => FvgBearColor = Serialize.StringToBrush(value); }
