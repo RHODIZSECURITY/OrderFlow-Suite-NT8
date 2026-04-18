@@ -66,7 +66,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 FvgBearColor  = Brushes.IndianRed;
 
                 ObEnabled       = true;
-                PivotStrength   = 2;
+                PivotStrength   = 5;
                 RangeMode       = ObRangeMode.Threshold75;
                 Mitigation      = ObMitigation.Close;
                 OverlapMode     = ObOverlapMode.HideOldest;
