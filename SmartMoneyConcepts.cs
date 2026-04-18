@@ -16,6 +16,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
     public enum FvgQuality    { Any, Displaced, Strong }
     public enum ObRangeMode   { FullCandle, BodyOnly, Threshold75, Threshold50 }
     public enum ObOverlapMode { None, Merge, HideOldest, HideYoungest }
+    public enum ObMitigation  { Close, Wick }
 
     [Gui.CategoryOrder("FVG Delta",      1)]
     [Gui.CategoryOrder("Order Blocks",   2)]
@@ -59,14 +60,15 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 ObEnabled       = true;
                 PivotStrength   = 2;
                 RangeMode       = ObRangeMode.Threshold75;
+                Mitigation      = ObMitigation.Close;
                 OverlapMode     = ObOverlapMode.HideOldest;
-                ObVisibleAbove  = 2;
-                ObVisibleBelow  = 2;
+                ObVisibleAbove  = 3;
+                ObVisibleBelow  = 3;
                 ObExtendBars    = 180;
                 ObOpacity       = 15;
                 ShowObLabels    = true;
-                ObBullColor     = Brushes.DodgerBlue;
-                ObBearColor     = Brushes.DarkOrange;
+                ObBullColor     = Brushes.DarkGreen;
+                ObBearColor     = Brushes.DarkRed;
 
                 ShowBreakerBlocks = true;
                 BreakerOpacity    = 18;
@@ -216,7 +218,10 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             for (int i = _obZones.Count - 1; i >= 0; i--)
             {
                 Zone z      = _obZones[i];
-                bool broken = z.Bull ? Close[0] < z.Top : Close[0] > z.Bottom;
+                // Pine: Close method → bull close<botom, bear close>top | Wick → low/high
+                bool broken = Mitigation == ObMitigation.Wick
+                    ? (z.Bull ? Low[0]   < z.Bottom : High[0] > z.Top)
+                    : (z.Bull ? Close[0] < z.Bottom : Close[0] > z.Top);
                 if (!broken) continue;
 
                 if (z.Visible)
@@ -415,30 +420,33 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         [NinjaScriptProperty, Display(Name = "Range Mode",       GroupName = "Order Blocks", Order = 3)]
         public ObRangeMode RangeMode { get; set; }
 
-        [NinjaScriptProperty, Display(Name = "Overlap Mode",     GroupName = "Order Blocks", Order = 4)]
+        [NinjaScriptProperty, Display(Name = "Mitigation",       GroupName = "Order Blocks", Order = 4)]
+        public ObMitigation Mitigation { get; set; }
+
+        [NinjaScriptProperty, Display(Name = "Overlap Mode",     GroupName = "Order Blocks", Order = 5)]
         public ObOverlapMode OverlapMode { get; set; }
 
-        [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible OB Above Price", GroupName = "Order Blocks", Order = 5)]
+        [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible OB Above Price", GroupName = "Order Blocks", Order = 6)]
         public int ObVisibleAbove { get; set; }
 
-        [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible OB Below Price", GroupName = "Order Blocks", Order = 6)]
+        [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible OB Below Price", GroupName = "Order Blocks", Order = 7)]
         public int ObVisibleBelow { get; set; }
 
-        [NinjaScriptProperty, Range(1, 1000), Display(Name = "OB Extend Bars",  GroupName = "Order Blocks", Order = 7)]
+        [NinjaScriptProperty, Range(1, 1000), Display(Name = "OB Extend Bars",  GroupName = "Order Blocks", Order = 8)]
         public int ObExtendBars { get; set; }
 
-        [NinjaScriptProperty, Range(0, 100), Display(Name = "OB Opacity",       GroupName = "Order Blocks", Order = 8)]
+        [NinjaScriptProperty, Range(0, 100), Display(Name = "OB Opacity",       GroupName = "Order Blocks", Order = 9)]
         public int ObOpacity { get; set; }
 
-        [NinjaScriptProperty, Display(Name = "Show OB Labels",   GroupName = "Order Blocks", Order = 9)]
+        [NinjaScriptProperty, Display(Name = "Show OB Labels",   GroupName = "Order Blocks", Order = 10)]
         public bool ShowObLabels { get; set; }
 
-        [XmlIgnore, Display(Name = "OB Bull Color", GroupName = "Order Blocks", Order = 10)]
+        [XmlIgnore, Display(Name = "OB Bull Color", GroupName = "Order Blocks", Order = 11)]
         public Brush ObBullColor { get; set; }
         [Browsable(false)]
         public string ObBullColorSerializable { get => Serialize.BrushToString(ObBullColor); set => ObBullColor = Serialize.StringToBrush(value); }
 
-        [XmlIgnore, Display(Name = "OB Bear Color", GroupName = "Order Blocks", Order = 11)]
+        [XmlIgnore, Display(Name = "OB Bear Color", GroupName = "Order Blocks", Order = 12)]
         public Brush ObBearColor { get; set; }
         [Browsable(false)]
         public string ObBearColorSerializable { get => Serialize.BrushToString(ObBearColor); set => ObBearColor = Serialize.StringToBrush(value); }
