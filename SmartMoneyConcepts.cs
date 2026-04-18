@@ -73,6 +73,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 BreakerBullColor  = Brushes.Teal;
                 BreakerBearColor  = Brushes.Sienna;
             }
+            else if (State == State.DataLoaded)
+            {
+                _fvgZones.Clear();
+                _obZones.Clear();
+                _breakerBlocks.Clear();
+            }
         }
 
         protected override void OnBarUpdate()
@@ -188,21 +194,18 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             }
         }
 
-        // OB invalidated when price closes BEYOND the zone → flip to Breaker Block
+        // OB invalidated when price closes BEYOND the zone → remove + flip to Breaker Block
         private void CheckObInvalidation()
         {
-            for (int i = 0; i < _obZones.Count; i++)
+            for (int i = _obZones.Count - 1; i >= 0; i--)
             {
                 Zone z = _obZones[i];
-                if (z.Mitigated || string.IsNullOrEmpty(z.DrawTag)) continue;
-
                 bool broken = z.Bull ? Close[0] < z.Bottom : Close[0] > z.Top;
                 if (!broken) continue;
 
-                z.Mitigated = true;
-                _obZones[i] = z;
                 RemoveDrawObject(z.DrawTag);
                 if (!string.IsNullOrEmpty(z.LabelTag)) RemoveDrawObject(z.LabelTag);
+                _obZones.RemoveAt(i);
 
                 if (!ShowBreakerBlocks) continue;
 
@@ -238,7 +241,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             }
         }
 
-        private const int MaxZones = 300;
+        private const int MaxZones = 20;
 
         private void AddZoneCapped(List<Zone> zones, Zone incoming)
         {
@@ -274,6 +277,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 int oldestIdx = 0;
                 for (int i = 1; i < zones.Count; i++)
                     if (zones[i].StartBar < zones[oldestIdx].StartBar) oldestIdx = i;
+                RemoveDrawObject(zones[oldestIdx].DrawTag);
+                if (!string.IsNullOrEmpty(zones[oldestIdx].LabelTag)) RemoveDrawObject(zones[oldestIdx].LabelTag);
                 zones.RemoveAt(oldestIdx);
             }
             zones.Add(incoming);
