@@ -57,13 +57,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 IsOverlay   = true;
                 MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
 
-                FvgEnabled    = true;
-                MinFvgTicks   = 2;
-                QualityFilter = FvgQuality.Displaced;
-                FvgExtendBars = 120;
-                FvgOpacity    = 20;
-                FvgBullColor  = Brushes.LimeGreen;
-                FvgBearColor  = Brushes.IndianRed;
+                FvgEnabled      = true;
+                MinFvgTicks     = 2;
+                QualityFilter   = FvgQuality.Displaced;
+                FvgVisibleAbove = 3;
+                FvgVisibleBelow = 3;
+                FvgOpacity      = 20;
+                FvgBullColor    = Brushes.LimeGreen;
+                FvgBearColor    = Brushes.IndianRed;
 
                 ObEnabled       = true;
                 PivotStrength   = 5;
@@ -104,6 +105,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             {
                 ProcessFvg();
                 CheckFvgMitigation();
+                EnforceFvgVisibility();
             }
 
             if (ObEnabled)
@@ -142,26 +144,64 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
             _lastFvgTop    = zone.Top;
             _lastFvgBottom = zone.Bottom;
-
-            Draw.Rectangle(this, fvgTag, false, 0, top, -FvgExtendBars, bot,
-                Brushes.Transparent, zone.Bull ? FvgBullColor : FvgBearColor, FvgOpacity);
+            // Drawing is handled by EnforceFvgVisibility — do not draw here
         }
 
+        // Remove FVG as soon as price fills it (no fade — clean disappearance)
         private void CheckFvgMitigation()
         {
+            for (int i = _fvgZones.Count - 1; i >= 0; i--)
+            {
+                Zone z = _fvgZones[i];
+                // Bull FVG: filled when price closes below the gap top (re-enters from above)
+                // Bear FVG: filled when price closes above the gap bottom (re-enters from below)
+                bool filled = Mitigation == ObMitigation.Wick
+                    ? (z.Bull ? Low[0]   < z.Top : High[0] > z.Bottom)
+                    : (z.Bull ? Close[0] < z.Top : Close[0] > z.Bottom);
+                if (!filled) continue;
+
+                if (z.Visible) RemoveDrawObject(z.DrawTag);
+                _fvgZones.RemoveAt(i);
+            }
+        }
+
+        // Show only N closest FVGs above/below price; redraw every bar to extend to right margin
+        private void EnforceFvgVisibility()
+        {
+            double price = Close[0];
+            var above = new List<int>(); var below = new List<int>(); var at = new List<int>();
             for (int i = 0; i < _fvgZones.Count; i++)
             {
                 Zone z = _fvgZones[i];
-                if (z.Mitigated || string.IsNullOrEmpty(z.DrawTag)) continue;
-                if (!(Close[0] > z.Bottom && Close[0] < z.Top)) continue;
+                if      (z.Bottom > price) above.Add(i);
+                else if (z.Top    < price) below.Add(i);
+                else                       at.Add(i);
+            }
+            above.Sort((a, b) => _fvgZones[a].Bottom.CompareTo(_fvgZones[b].Bottom));
+            below.Sort((a, b) => _fvgZones[b].Top.CompareTo(_fvgZones[a].Top));
+            var show = new HashSet<int>(at);
+            for (int k = 0; k < Math.Min(FvgVisibleAbove, above.Count); k++) show.Add(above[k]);
+            for (int k = 0; k < Math.Min(FvgVisibleBelow, below.Count); k++) show.Add(below[k]);
 
-                z.Mitigated  = true;
-                _fvgZones[i] = z;
+            for (int i = 0; i < _fvgZones.Count; i++)
+            {
+                Zone z          = _fvgZones[i];
+                bool shouldShow = show.Contains(i);
 
-                int barsBack = CurrentBar - z.StartBar;
-                Draw.Rectangle(this, z.DrawTag, false, barsBack, z.Top, 0, z.Bottom,
-                    Brushes.Transparent, z.Bull ? FvgBullColor : FvgBearColor,
-                    Math.Max(1, FvgOpacity / 4));
+                if (shouldShow)
+                {
+                    int barsBack = Math.Max(1, CurrentBar - z.StartBar);
+                    Draw.Rectangle(this, z.DrawTag, false, barsBack, z.Top, -500, z.Bottom,
+                        Brushes.Transparent, z.Bull ? FvgBullColor : FvgBearColor, FvgOpacity);
+                    z.Visible    = true;
+                    _fvgZones[i] = z;
+                }
+                else if (z.Visible)
+                {
+                    RemoveDrawObject(z.DrawTag);
+                    z.Visible    = false;
+                    _fvgZones[i] = z;
+                }
             }
         }
 
@@ -477,18 +517,21 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         [NinjaScriptProperty, Display(Name = "Quality Filter", GroupName = "FVG Delta", Order = 3)]
         public FvgQuality QualityFilter { get; set; }
 
-        [NinjaScriptProperty, Range(1, 1000), Display(Name = "FVG Extend Bars", GroupName = "FVG Delta", Order = 4)]
-        public int FvgExtendBars { get; set; }
+        [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible FVG Above", GroupName = "FVG Delta", Order = 4)]
+        public int FvgVisibleAbove { get; set; }
 
-        [NinjaScriptProperty, Range(0, 100), Display(Name = "FVG Opacity", GroupName = "FVG Delta", Order = 5)]
+        [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible FVG Below", GroupName = "FVG Delta", Order = 5)]
+        public int FvgVisibleBelow { get; set; }
+
+        [NinjaScriptProperty, Range(0, 100), Display(Name = "FVG Opacity", GroupName = "FVG Delta", Order = 6)]
         public int FvgOpacity { get; set; }
 
-        [XmlIgnore, Display(Name = "FVG Bull Color", GroupName = "FVG Delta", Order = 6)]
+        [XmlIgnore, Display(Name = "FVG Bull Color", GroupName = "FVG Delta", Order = 7)]
         public Brush FvgBullColor { get; set; }
         [Browsable(false)]
         public string FvgBullColorSerializable { get => Serialize.BrushToString(FvgBullColor); set => FvgBullColor = Serialize.StringToBrush(value); }
 
-        [XmlIgnore, Display(Name = "FVG Bear Color", GroupName = "FVG Delta", Order = 7)]
+        [XmlIgnore, Display(Name = "FVG Bear Color", GroupName = "FVG Delta", Order = 8)]
         public Brush FvgBearColor { get; set; }
         [Browsable(false)]
         public string FvgBearColorSerializable { get => Serialize.BrushToString(FvgBearColor); set => FvgBearColor = Serialize.StringToBrush(value); }
