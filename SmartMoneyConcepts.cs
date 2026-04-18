@@ -39,6 +39,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         private double _lastObTop     = double.NaN;
         private double _lastObBottom  = double.NaN;
 
+        // Price swing tracking for pivot+BOS+Volume detection
+        private double _swingHigh    = double.NaN;
+        private int    _swingHighBar = -1;
+        private bool   _highBosUsed  = false;
+        private double _swingLow     = double.NaN;
+        private int    _swingLowBar  = -1;
+        private bool   _lowBosUsed   = false;
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -70,6 +78,10 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 ObBullColor     = Brushes.DarkGreen;
                 ObBearColor     = Brushes.DarkRed;
 
+                UseVolFilter  = true;
+                VolFilterMult = 1.5;
+                VolSmaLen     = 20;
+
                 ShowBreakerBlocks = true;
                 BreakerOpacity    = 18;
                 BreakerBullColor  = Brushes.Teal;
@@ -80,6 +92,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 _fvgZones.Clear();
                 _obZones.Clear();
                 _breakerBlocks.Clear();
+                _swingHigh = double.NaN; _swingHighBar = -1; _highBosUsed = false;
+                _swingLow  = double.NaN; _swingLowBar  = -1; _lowBosUsed  = false;
             }
         }
 
@@ -152,32 +166,71 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             }
         }
 
-        // ── Order Blocks — Volume Pivot detection ────────────────────────────────
-        // High-volume bars = institutional footprint (absorption).
-        // Bearish high-vol candle → institutions absorbed selling → Bullish OB (support)
-        // Bullish high-vol candle → institutions absorbed buying  → Bearish OB (resistance)
+        // ── Order Blocks — Structure + Volume (maximum quality) ─────────────────
+        // Step 1: Price pivot confirms structural swing (ICT/SMC)
+        // Step 2: BOS (break of structure) validates the OB context
+        // Step 3: Volume filter ensures institutional footprint on the OB candle
 
         private void ProcessOrderBlocks()
         {
             int len = PivotStrength;
             if (CurrentBar < len * 2 + 2) return;
-            if (!IsVolumePivotHigh(len)) return;
 
-            // Direction: the candle color at the volume peak determines OB type
-            bool isBull = Close[len] < Open[len]; // bearish candle = bullish OB
-            RegisterOB(isBull, srcBarsAgo: len);
+            // Update tracked swings
+            double ph = DetectPivotHigh(len);
+            if (!double.IsNaN(ph)) { _swingHigh = ph; _swingHighBar = CurrentBar - len; _highBosUsed = false; }
+
+            double pl = DetectPivotLow(len);
+            if (!double.IsNaN(pl)) { _swingLow = pl; _swingLowBar = CurrentBar - len; _lowBosUsed = false; }
+
+            // BOS UP → Bullish OB: find bar with lowest low near the swing
+            if (!double.IsNaN(_swingHigh) && !_highBosUsed && Close[0] > _swingHigh)
+            {
+                _highBosUsed     = true;
+                int swingBarsAgo = CurrentBar - _swingHighBar;
+                int obBarsAgo    = FindExtremeCandle(swingBarsAgo, swingBarsAgo + len * 4, isBull: true);
+                if (obBarsAgo > 0) RegisterOB(true, obBarsAgo);
+            }
+
+            // BOS DOWN → Bearish OB: find bar with highest high near the swing
+            if (!double.IsNaN(_swingLow) && !_lowBosUsed && Close[0] < _swingLow)
+            {
+                _lowBosUsed      = true;
+                int swingBarsAgo = CurrentBar - _swingLowBar;
+                int obBarsAgo    = FindExtremeCandle(swingBarsAgo, swingBarsAgo + len * 4, isBull: false);
+                if (obBarsAgo > 0) RegisterOB(false, obBarsAgo);
+            }
         }
 
-        // Volume[len] is a local maximum — right strict (>=), left lenient (>)
-        private bool IsVolumePivotHigh(int len)
+        // Find barsAgo of bar with lowest low (bull) or highest high (bear) in range
+        private int FindExtremeCandle(int startBarsAgo, int endBarsAgo, bool isBull)
         {
-            double vol = Volume[len];
-            if (vol <= 0) return false;
-            for (int i = 0; i < len; i++)
-                if (Volume[i] >= vol) return false;
-            for (int i = len + 1; i <= len * 2; i++)
-                if (Volume[i] > vol) return false;
-            return true;
+            int    best    = -1;
+            double bestVal = isBull ? double.MaxValue : double.MinValue;
+            int    cap     = Math.Min(endBarsAgo, CurrentBar - 1);
+            for (int i = startBarsAgo; i <= cap; i++)
+            {
+                double v = isBull ? Low[i] : High[i];
+                if (isBull ? v < bestVal : v > bestVal) { bestVal = v; best = i; }
+            }
+            return best;
+        }
+
+        // Pivot high: bar[len] highest — right strict >=, left lenient >
+        private double DetectPivotHigh(int len)
+        {
+            double h = High[len];
+            for (int i = 0; i < len; i++)     if (High[i] >= h) return double.NaN;
+            for (int i = len+1; i <= len*2; i++) if (High[i] > h) return double.NaN;
+            return h;
+        }
+
+        private double DetectPivotLow(int len)
+        {
+            double l = Low[len];
+            for (int i = 0; i < len; i++)     if (Low[i] <= l) return double.NaN;
+            for (int i = len+1; i <= len*2; i++) if (Low[i] < l) return double.NaN;
+            return l;
         }
 
         // Build zone from OB candle and add to list
@@ -204,6 +257,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     hi = High[srcBarsAgo]; lo = Low[srcBarsAgo]; break;
             }
             if (hi - lo < TickSize) return;
+
+            if (UseVolFilter)
+            {
+                double avgVol = SMA(Volume, VolSmaLen)[srcBarsAgo];
+                if (avgVol > 0 && Volume[srcBarsAgo] < avgVol * VolFilterMult) return;
+            }
 
             int    absBar = CurrentBar - srcBarsAgo;
             string obTag  = $"SMC_OB_{(isBull ? "B" : "S")}_{absBar}";
@@ -425,7 +484,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         [NinjaScriptProperty, Display(Name = "OB Enabled",       GroupName = "Order Blocks", Order = 1)]
         public bool ObEnabled { get; set; }
 
-        [NinjaScriptProperty, Range(1, 20), Display(Name = "Volume Pivot Length", GroupName = "Order Blocks", Order = 2)]
+        [NinjaScriptProperty, Range(1, 20), Display(Name = "Pivot Strength", GroupName = "Order Blocks", Order = 2)]
         public int PivotStrength { get; set; }
 
         [NinjaScriptProperty, Display(Name = "Range Mode",       GroupName = "Order Blocks", Order = 3)]
@@ -461,6 +520,15 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         public Brush ObBearColor { get; set; }
         [Browsable(false)]
         public string ObBearColorSerializable { get => Serialize.BrushToString(ObBearColor); set => ObBearColor = Serialize.StringToBrush(value); }
+
+        [NinjaScriptProperty, Display(Name = "Volume Filter",   GroupName = "Order Blocks", Order = 13)]
+        public bool UseVolFilter { get; set; }
+
+        [NinjaScriptProperty, Range(0.1, 5.0), Display(Name = "Vol Mult",       GroupName = "Order Blocks", Order = 14)]
+        public double VolFilterMult { get; set; }
+
+        [NinjaScriptProperty, Range(5, 100), Display(Name = "Vol SMA Length",   GroupName = "Order Blocks", Order = 15)]
+        public int VolSmaLen { get; set; }
 
         [NinjaScriptProperty, Display(Name = "Show Breaker Blocks", GroupName = "Breaker Blocks", Order = 1)]
         public bool ShowBreakerBlocks { get; set; }
