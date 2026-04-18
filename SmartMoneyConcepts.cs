@@ -26,7 +26,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         private struct Zone
         {
             public int    StartBar;
-            public double Top, Bottom;
+            public double Top, Bottom, OBVolume;
             public bool   Bull, Mitigated, Visible;
             public string DrawTag, LabelTag;
         }
@@ -72,7 +72,6 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 OverlapMode     = ObOverlapMode.HideOldest;
                 ObVisibleAbove  = 3;
                 ObVisibleBelow  = 3;
-                ObExtendBars    = 180;
                 ObOpacity       = 15;
                 ShowObLabels    = true;
                 ObBullColor     = Brushes.DarkGreen;
@@ -268,7 +267,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             string obTag  = $"SMC_OB_{(isBull ? "B" : "S")}_{absBar}";
             string lblTag = $"SMC_OB_LBL_{absBar}";
 
-            Zone zone = new Zone { StartBar = absBar, Top = hi, Bottom = lo, Bull = isBull, DrawTag = obTag, LabelTag = lblTag };
+            Zone zone = new Zone { StartBar = absBar, Top = hi, Bottom = lo, Bull = isBull,
+                                   OBVolume = Volume[srcBarsAgo], DrawTag = obTag, LabelTag = lblTag };
 
             switch (OverlapMode)
             {
@@ -323,7 +323,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     StartBar = CurrentBar, Top = z.Top, Bottom = z.Bottom,
                     Bull = bbBull, DrawTag = bbTag, LabelTag = bbLbl
                 });
-                Draw.Rectangle(this, bbTag, false, barsBack, z.Top, -ObExtendBars, z.Bottom,
+                Draw.Rectangle(this, bbTag, false, barsBack, z.Top, -500, z.Bottom,
                     Brushes.Transparent, bbBull ? BreakerBullColor : BreakerBearColor, BreakerOpacity);
                 Draw.Text(this, bbLbl, "BB", 0, (z.Top + z.Bottom) * 0.5, Brushes.White);
             }
@@ -331,11 +331,11 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
         // Show only the N closest OBs above price and N closest below price.
         // Zones containing current price are always visible.
+        // Redrawn every bar (like S/R) so the zone extends to the right margin until mitigated.
         private void EnforceObVisibility()
         {
             double price = Close[0];
 
-            // Collect indices by position relative to price
             var above = new List<int>();
             var below = new List<int>();
             var at    = new List<int>();
@@ -348,38 +348,47 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 else                       at.Add(i);
             }
 
-            // Sort above ascending by Bottom (smallest Bottom = closest to price)
             above.Sort((a, b) => _obZones[a].Bottom.CompareTo(_obZones[b].Bottom));
-            // Sort below descending by Top (largest Top = closest to price)
             below.Sort((a, b) => _obZones[b].Top.CompareTo(_obZones[a].Top));
 
             var show = new HashSet<int>(at);
             for (int k = 0; k < Math.Min(ObVisibleAbove, above.Count); k++) show.Add(above[k]);
             for (int k = 0; k < Math.Min(ObVisibleBelow, below.Count); k++) show.Add(below[k]);
 
+            // Total volume across visible zones for % label
+            double totalVol = 0;
+            foreach (int idx in show) totalVol += _obZones[idx].OBVolume;
+            if (totalVol <= 0) totalVol = 1;
+
             for (int i = 0; i < _obZones.Count; i++)
             {
-                Zone z         = _obZones[i];
+                Zone z          = _obZones[i];
                 bool shouldShow = show.Contains(i);
 
-                if (shouldShow && !z.Visible)
+                if (shouldShow)
                 {
                     Brush fill     = z.Bull ? ObBullColor : ObBearColor;
                     int   barsBack = Math.Max(1, CurrentBar - z.StartBar);
-                    Draw.Rectangle(this, z.DrawTag, false, barsBack, z.Top, -ObExtendBars, z.Bottom,
+                    // Redraw every bar with -500 so zone always reaches the right margin
+                    Draw.Rectangle(this, z.DrawTag, false, barsBack, z.Top, -500, z.Bottom,
                         fill, fill, ObOpacity);
                     if (ShowObLabels)
-                        Draw.Text(this, z.LabelTag, true, "OB", barsBack, (z.Top + z.Bottom) * 0.5, 0,
+                    {
+                        double pct  = z.OBVolume / totalVol * 100.0;
+                        double volK = z.OBVolume / 1000.0;
+                        string lbl  = $"{pct:F1}% ({volK:F1}K)";
+                        Draw.Text(this, z.LabelTag, true, lbl, barsBack, (z.Top + z.Bottom) * 0.5, 0,
                             Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
                             Brushes.Transparent, Brushes.Transparent, 0);
-                    z.Visible  = true;
+                    }
+                    z.Visible   = true;
                     _obZones[i] = z;
                 }
-                else if (!shouldShow && z.Visible)
+                else if (z.Visible)
                 {
                     RemoveDrawObject(z.DrawTag);
                     if (!string.IsNullOrEmpty(z.LabelTag)) RemoveDrawObject(z.LabelTag);
-                    z.Visible  = false;
+                    z.Visible   = false;
                     _obZones[i] = z;
                 }
             }
@@ -446,6 +455,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 z.Top      = Math.Max(z.Top, incoming.Top);
                 z.Bottom   = Math.Min(z.Bottom, incoming.Bottom);
                 z.StartBar = incoming.StartBar;
+                z.OBVolume += incoming.OBVolume;
                 z.Visible  = false; // force redraw on next EnforceObVisibility pass
                 zones[i]   = z;
                 return;
@@ -502,13 +512,10 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         [NinjaScriptProperty, Range(0, 20), Display(Name = "Visible OB Below Price", GroupName = "Order Blocks", Order = 7)]
         public int ObVisibleBelow { get; set; }
 
-        [NinjaScriptProperty, Range(1, 1000), Display(Name = "OB Extend Bars",  GroupName = "Order Blocks", Order = 8)]
-        public int ObExtendBars { get; set; }
-
-        [NinjaScriptProperty, Range(0, 100), Display(Name = "OB Opacity",       GroupName = "Order Blocks", Order = 9)]
+        [NinjaScriptProperty, Range(0, 100), Display(Name = "OB Opacity",       GroupName = "Order Blocks", Order = 8)]
         public int ObOpacity { get; set; }
 
-        [NinjaScriptProperty, Display(Name = "Show OB Labels",   GroupName = "Order Blocks", Order = 10)]
+        [NinjaScriptProperty, Display(Name = "Show OB Labels",   GroupName = "Order Blocks", Order = 9)]
         public bool ShowObLabels { get; set; }
 
         [XmlIgnore, Display(Name = "OB Bull Color", GroupName = "Order Blocks", Order = 11)]
