@@ -292,7 +292,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     Brush fill     = z.Bull ? ObBullColor : ObBearColor;
                     int   barsBack = Math.Max(1, CurrentBar - z.StartBar);
                     Draw.Rectangle(this, z.DrawTag, false, barsBack, z.Top, -ObExtendBars, z.Bottom,
-                        Brushes.Transparent, fill, ObOpacity);
+                        fill, fill, ObOpacity);
                     if (ShowObLabels)
                         Draw.Text(this, z.LabelTag, true, "OB", barsBack, z.Top, 0,
                             Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
