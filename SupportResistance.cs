@@ -1,7 +1,7 @@
 // Support & Resistance Zone Detection
-// Logic ported from Pine Script reference (ta.pivothigh / ta.pivotlow equivalent)
-// Pivots: asymmetric comparison — right (newer) strict, left (older) lenient (ties OK)
-// Zone left edge anchored at actual pivot bar (CurrentBar - len), right edge extends to current bar
+// Logic ported from Pine Script reference (LuxAlgo DSR parity)
+// Donchian: direction flip → level; pivot: ta.pivothigh/ta.pivotlow asymmetric comparison
+// Zones anchored at actual pivot bar, extend to current bar (extend.right equivalent)
 
 #region Using declarations
 using System;
@@ -33,7 +33,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             public bool   Hidden;
             public int    Strength;
             public int    Sweeps;
-            public int    StartBar;   // actual pivot bar index
+            public int    StartBar;
             public string Tag, LblTag;
             public bool   InZone;
         }
@@ -55,11 +55,12 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 DrawOnPricePanel         = true;
                 IsSuspendedWhileInactive = true;
 
-                DetectionMethod  = SrDetectionMethod.Pivots;
-                SwingSensitivity = 3;
+                DetectionMethod  = SrDetectionMethod.Donchian;
+                SwingSensitivity = 10;
+                AtrPeriod        = 200;
                 DisplayType      = SrDisplayType.Zones;
-                ZoneDepthAtr     = 1.0;
-                BreakoutBuffer   = 0.25;
+                ZoneDepthAtr     = 0.5;
+                BreakoutBuffer   = 0.0;
                 ZoneOpacity      = 65;
                 OverlapHandling  = SrOverlapMode.HideOldest;
                 MaxHistory       = 8;
@@ -67,8 +68,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 VisibleBelow     = 2;
                 ShowLabels       = true;
                 ShowBreakLines   = true;
-                ResistColor      = new SolidColorBrush(Color.FromRgb(180, 30,  30));
-                SupportColor     = new SolidColorBrush(Color.FromRgb( 30, 160, 50));
+                // LuxAlgo palette: #089981 teal for support, #F23645 coral for resistance
+                SupportColor     = new SolidColorBrush(Color.FromRgb(  8, 153, 129));
+                ResistColor      = new SolidColorBrush(Color.FromRgb(242,  54,  69));
             }
             else if (State == State.DataLoaded)
             {
@@ -82,10 +84,11 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         {
             try
             {
-                int len = Math.Max(2, (int)SwingSensitivity);
-                if (CurrentBar < len * 2 + 4) return;
+                int len     = Math.Max(2, (int)SwingSensitivity);
+                int minBars = Math.Max(len * 2 + 4, AtrPeriod + 1);
+                if (CurrentBar < minBars) return;
 
-                double atr = ATR(14)[0];
+                double atr = ATR(AtrPeriod)[0];
                 if (atr <= 0 || double.IsNaN(atr)) return;
 
                 double zDepth   = atr * ZoneDepthAtr;
@@ -126,7 +129,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     SRZone z = _levels[i];
                     if (z.Mitigated) continue;
 
-                    // Mitigation — Pine: close < btm (support) / close > top (resistance)
+                    // Pine: close < btm (support broken) / close > top (resistance broken)
                     bool broken = z.IsSupport ? Close[0] < z.Bot : Close[0] > z.Top;
                     if (broken)
                     {
@@ -135,7 +138,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                         RemoveDrawObject(z.LblTag);
                         if (ShowBreakLines)
                         {
-                            Brush bc = z.IsSupport ? SupportColor : ResistColor;
+                            Brush bc = z.IsSupport ? (SupportColor ?? Brushes.Teal) : (ResistColor ?? Brushes.Red);
                             Draw.HorizontalLine(this, z.Tag + "_brk", z.Base, bc, DashStyleHelper.Dash, 1);
                         }
                         continue;
@@ -160,9 +163,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             catch { }
         }
 
-        // ── Pivot detection — matches ta.pivothigh / ta.pivotlow (Pine Script) ──
-        // Right side (newer bars, i < len): strict  — High[i] >= h disqualifies
-        // Left side (older bars, i > len): lenient  — High[i] >  h disqualifies (ties OK)
+        // ── Pivot detection — asymmetric (matches ta.pivothigh / ta.pivotlow) ────
+        // Right side (newer, i < len): strict — ties disqualify
+        // Left side (older, i > len): lenient — ties allowed
         private double DetectPivotHigh(int len)
         {
             if (CurrentBar < len * 2 + 1) return double.NaN;
@@ -185,27 +188,33 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             return l;
         }
 
+        // ── Donchian — matches Pine Script reference logic ────────────────────────
+        // Tracks individual bar High[0]/Low[0] (not period max/min) for pivot value
         private void DonchianDetect(int len, out double detPH, out double detPL)
         {
             detPH = double.NaN; detPL = double.NaN;
             if (CurrentBar <= len) return;
-            double dHigh = MAX(High, len)[0];
-            double dLow  = MIN(Low,  len)[0];
 
-            int newDir = MAX(High, len)[1] < dHigh ? 1 :
-                         MIN(Low,  len)[1] > dLow  ? -1 : _donchOs;
+            double donchH = MAX(High, len)[0];
+            double donchL = MIN(Low,  len)[0];
+            double pDonchH = MAX(High, len)[1];
+            double pDonchL = MIN(Low,  len)[1];
+
+            int newDir = donchH > pDonchH ? 1 : donchL < pDonchL ? -1 : _donchOs;
 
             if (newDir != _donchOs && newDir != 0)
             {
+                // Direction flip → previous tracked extreme becomes a level
                 if (newDir ==  1 && !double.IsNaN(_donchVal)) detPL = _donchVal;
                 if (newDir == -1 && !double.IsNaN(_donchVal)) detPH = _donchVal;
-                _donchVal = newDir == 1 ? dHigh : dLow;
+                _donchVal = newDir == 1 ? High[0] : Low[0];
                 _donchOs  = newDir;
             }
             else
             {
-                if (_donchOs ==  1 && dHigh >= _donchVal) _donchVal = dHigh;
-                if (_donchOs == -1 && dLow  <= _donchVal) _donchVal = dLow;
+                // Same direction → track the new extreme using individual bar price
+                if (_donchOs ==  1 && High[0] >= _donchVal) _donchVal = High[0];
+                if (_donchOs == -1 && Low[0]  <= _donchVal) _donchVal = Low[0];
             }
         }
 
@@ -223,12 +232,10 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 {
                     case SrOverlapMode.HideYoungest:
                         return;
-
                     case SrOverlapMode.HideOldest:
                         RemoveDrawObject(ex.Tag); RemoveDrawObject(ex.LblTag);
                         _levels.RemoveAt(i);
                         break;
-
                     case SrOverlapMode.MergeOverlapping:
                         SRZone m = ex;
                         m.Top = Math.Max(ex.Top, top);
@@ -254,32 +261,31 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 _levels.RemoveAt(oldestIdx);
             }
 
-            string tag  = (isSupport ? "SR_S_" : "SR_R_") + CurrentBar;
+            string tag = (isSupport ? "SR_S_" : "SR_R_") + CurrentBar;
             var z = new SRZone
             {
                 Top = top, Bot = bot, Base = basePrice,
                 IsSupport = isSupport, Mitigated = false, Hidden = false,
                 Strength = 1, Sweeps = 0,
-                StartBar = CurrentBar - pivotOffset,   // actual pivot bar
+                StartBar = CurrentBar - pivotOffset,
                 Tag = tag, LblTag = tag + "_lbl"
             };
             _levels.Add(z);
             RedrawZone(z);
         }
 
-        // ── Draw rectangle from pivot bar to current bar ──────────────────────────
+        // ── Draw — fill brush used for both outline and area (avoids NT8 color fallback)
         private void RedrawZone(SRZone z)
         {
             if (z.Hidden || z.Mitigated) return;
-            Brush fill    = z.IsSupport ? (SupportColor ?? Brushes.Green) : (ResistColor ?? Brushes.Red);
-            int   ago     = Math.Max(0, Math.Min(CurrentBar - z.StartBar, 4000));
+            Brush fill = z.IsSupport ? (SupportColor ?? Brushes.Teal) : (ResistColor ?? Brushes.Red);
+            int   ago  = Math.Max(0, Math.Min(CurrentBar - z.StartBar, 4000));
 
             if (DisplayType == SrDisplayType.Zones)
             {
-                // Pine Script equivalent: border_color=na, bgcolor=fill — no visible border
-                // barsAgo=ago (pivot bar, left edge), barsAgo2=0 (current bar, right edge, extends each close)
-                Draw.Rectangle(this, z.Tag, false, ago, z.Top, 0, z.Bot,
-                    Brushes.Transparent, fill, ZoneOpacity);
+                // Same brush for outline and fill — passing Brushes.Transparent as outline
+                // causes NT8 to fall back to a default (blue) color; use fill for both instead
+                Draw.Rectangle(this, z.Tag, false, ago, z.Top, 0, z.Bot, fill, fill, ZoneOpacity);
             }
             else
             {
@@ -289,14 +295,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (ShowLabels)
             {
                 string lbl  = z.IsSupport ? "SUPPORT" : "RESISTANCE";
-                double yLbl = (z.Top + z.Bot) * 0.5;   // center of zone, matching Pine valign=center
+                double yLbl = (z.Top + z.Bot) * 0.5;
                 Draw.Text(this, z.LblTag, true, lbl, ago, yLbl, 0,
                     Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
                     Brushes.Transparent, Brushes.Transparent, 0);
             }
         }
 
-        // ── Visibility control — Pine Script: isAbove = zoneMid >= close ─────────
+        // ── Visibility — Pine Script: isAbove = zoneMid >= close ─────────────────
         private void EnforceVisibility()
         {
             int above = 0, below = 0;
@@ -305,8 +311,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 SRZone z = _levels[i];
                 if (z.Mitigated) continue;
 
-                double mid      = (z.Top + z.Bot) * 0.5;
-                bool   isAbove  = mid >= Close[0];
+                double mid     = (z.Top + z.Bot) * 0.5;
+                bool   isAbove = mid >= Close[0];
                 bool   shouldHide;
 
                 if (isAbove) { above++; shouldHide = above > VisibleAbove; }
@@ -333,57 +339,62 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
         [NinjaScriptProperty]
         [Range(2, 50)]
-        [Display(Name = "Swing Sensitivity (bars)", Order = 2, GroupName = "Support & Resistance")]
+        [Display(Name = "Swing Sensitivity", Order = 2, GroupName = "Support & Resistance")]
         public double SwingSensitivity { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Display Style", Order = 3, GroupName = "Support & Resistance")]
+        [Range(5, 500)]
+        [Display(Name = "ATR Period", Order = 3, GroupName = "Support & Resistance")]
+        public int AtrPeriod { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Display Style", Order = 4, GroupName = "Support & Resistance")]
         public SrDisplayType DisplayType { get; set; }
 
         [NinjaScriptProperty]
         [Range(0.1, 5.0)]
-        [Display(Name = "Zone Depth (× ATR)", Order = 4, GroupName = "Support & Resistance")]
+        [Display(Name = "Zone Depth (× ATR)", Order = 5, GroupName = "Support & Resistance")]
         public double ZoneDepthAtr { get; set; }
 
         [NinjaScriptProperty]
         [Range(0.0, 2.0)]
-        [Display(Name = "Breakout Buffer (× ATR)", Order = 5, GroupName = "Support & Resistance")]
+        [Display(Name = "Breakout Buffer (× ATR)", Order = 6, GroupName = "Support & Resistance")]
         public double BreakoutBuffer { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 100)]
-        [Display(Name = "Zone Fill Opacity %", Order = 6, GroupName = "Support & Resistance")]
+        [Display(Name = "Zone Fill Opacity %", Order = 7, GroupName = "Support & Resistance")]
         public int ZoneOpacity { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Overlap Handling", Order = 7, GroupName = "Support & Resistance")]
+        [Display(Name = "Overlap Handling", Order = 8, GroupName = "Support & Resistance")]
         public SrOverlapMode OverlapHandling { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 30)]
-        [Display(Name = "Max S/R History", Order = 8, GroupName = "Support & Resistance")]
+        [Display(Name = "Max S/R History", Order = 9, GroupName = "Support & Resistance")]
         public int MaxHistory { get; set; }
 
         [NinjaScriptProperty]
         [Range(0, 20)]
-        [Display(Name = "Visible Zones Above", Order = 9, GroupName = "Support & Resistance")]
+        [Display(Name = "Visible Zones Above", Order = 10, GroupName = "Support & Resistance")]
         public int VisibleAbove { get; set; }
 
         [NinjaScriptProperty]
         [Range(0, 20)]
-        [Display(Name = "Visible Zones Below", Order = 10, GroupName = "Support & Resistance")]
+        [Display(Name = "Visible Zones Below", Order = 11, GroupName = "Support & Resistance")]
         public int VisibleBelow { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Show Labels", Order = 11, GroupName = "Support & Resistance")]
+        [Display(Name = "Show Labels", Order = 12, GroupName = "Support & Resistance")]
         public bool ShowLabels { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Show Break Lines", Order = 12, GroupName = "Support & Resistance")]
+        [Display(Name = "Show Break Lines", Order = 13, GroupName = "Support & Resistance")]
         public bool ShowBreakLines { get; set; }
 
         [XmlIgnore]
-        [Display(Name = "Resistance Color", Order = 13, GroupName = "Support & Resistance")]
+        [Display(Name = "Resistance Color", Order = 14, GroupName = "Support & Resistance")]
         public Brush ResistColor { get; set; }
         [Browsable(false)]
         public string ResistColorSerializable
@@ -393,7 +404,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         }
 
         [XmlIgnore]
-        [Display(Name = "Support Color", Order = 14, GroupName = "Support & Resistance")]
+        [Display(Name = "Support Color", Order = 15, GroupName = "Support & Resistance")]
         public Brush SupportColor { get; set; }
         [Browsable(false)]
         public string SupportColorSerializable
