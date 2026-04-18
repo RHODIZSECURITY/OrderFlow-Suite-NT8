@@ -66,7 +66,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 FvgBearColor  = Brushes.IndianRed;
 
                 ObEnabled       = true;
-                PivotStrength   = 2;
+                PivotStrength   = 5;
                 RangeMode       = ObRangeMode.Threshold75;
                 Mitigation      = ObMitigation.Close;
                 OverlapMode     = ObOverlapMode.HideOldest;
@@ -360,7 +360,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     Draw.Rectangle(this, z.DrawTag, false, barsBack, z.Top, -ObExtendBars, z.Bottom,
                         fill, fill, ObOpacity);
                     if (ShowObLabels)
-                        Draw.Text(this, z.LabelTag, true, "OB", barsBack, z.Top, 0,
+                        Draw.Text(this, z.LabelTag, true, "OB", barsBack, (z.Top + z.Bottom) * 0.5, 0,
                             Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
                             Brushes.Transparent, Brushes.Transparent, 0);
                     z.Visible  = true;
