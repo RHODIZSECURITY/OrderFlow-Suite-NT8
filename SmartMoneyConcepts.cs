@@ -208,11 +208,6 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             for (int k = 0; k < Math.Min(FvgVisibleAbove, above.Count); k++) show.Add(above[k]);
             for (int k = 0; k < Math.Min(FvgVisibleBelow, below.Count); k++) show.Add(below[k]);
 
-            // Total volume across visible FVG zones for % label
-            double totalFvgVol = 0;
-            foreach (int idx in show) totalFvgVol += _fvgZones[idx].OBVolume;
-            if (totalFvgVol <= 0) totalFvgVol = 1;
-
             for (int i = 0; i < _fvgZones.Count; i++)
             {
                 Zone z          = _fvgZones[i];
@@ -221,12 +216,10 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 if (shouldShow)
                 {
                     int    barsBack = Math.Max(1, CurrentBar - z.StartBar);
-                    double labelY   = z.Top - (z.Top - z.Bottom) * 0.2;
+                    double labelY   = (z.Top + z.Bottom) * 0.5;
                     Draw.Rectangle(this, z.DrawTag, false, barsBack, z.Top, -500, z.Bottom,
                         Brushes.Transparent, z.Bull ? FvgBullColor : FvgBearColor, FvgOpacity);
-                    double pct  = z.OBVolume / totalFvgVol * 100.0;
-                    double volK = z.OBVolume / 1000.0;
-                    Draw.Text(this, z.LabelTag, true, $"FVG  {pct:F1}% ({volK:F1}K)", barsBack, labelY, 0,
+                    Draw.Text(this, z.LabelTag, true, "FVG", barsBack, labelY, 0,
                         Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
                         Brushes.Transparent, Brushes.Transparent, 0);
                     z.Visible    = true;
@@ -402,7 +395,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 });
                 Draw.Rectangle(this, bbTag, false, barsBack, z.Top, -500, z.Bottom,
                     Brushes.Transparent, bbBull ? BreakerBullColor : BreakerBearColor, BreakerOpacity);
-                Draw.Text(this, bbLbl, true, "BB", barsBack, z.Top - (z.Top - z.Bottom) * 0.2, 0,
+                Draw.Text(this, bbLbl, true, "BB", barsBack, (z.Top + z.Bottom) * 0.5, 0,
                     Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
                     Brushes.Transparent, Brushes.Transparent, 0);
             }
@@ -455,9 +448,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     {
                         double pct  = z.OBVolume / totalVol * 100.0;
                         double volK = z.OBVolume / 1000.0;
-                        string lbl  = $"OB  {pct:F1}% ({volK:F1}K)";
-                        // Anchor near top-left inside the zone (25% from top)
-                        double labelY = z.Top - (z.Top - z.Bottom) * 0.2;
+                        string lbl    = $"OB  {pct:F1}% ({volK:F1}K)";
+                        double labelY = (z.Top + z.Bottom) * 0.5;
                         Draw.Text(this, z.LabelTag, true, lbl, barsBack, labelY, 0,
                             Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
                             Brushes.Transparent, Brushes.Transparent, 0);
