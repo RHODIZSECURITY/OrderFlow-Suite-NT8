@@ -154,7 +154,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             }
 
             string fvgTag = $"SMC_FVG_{(bullGap ? "B" : "S")}_{CurrentBar}";
-            Zone zone = new Zone { StartBar = CurrentBar, Top = top, Bottom = bot, Bull = bullGap, DrawTag = fvgTag };
+            string fvgLbl = $"SMC_FVG_LBL_{CurrentBar}";
+            Zone zone = new Zone { StartBar = CurrentBar, Top = top, Bottom = bot, Bull = bullGap,
+                                   OBVolume = Volume[1], DrawTag = fvgTag, LabelTag = fvgLbl };
 
             if (OverlapMode == ObOverlapMode.Merge)
                 MergeZone(_fvgZones, zone);
@@ -179,7 +181,11 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     : (z.Bull ? Close[0] < z.Top : Close[0] > z.Bottom);
                 if (!filled) continue;
 
-                if (z.Visible) RemoveDrawObject(z.DrawTag);
+                if (z.Visible)
+                {
+                    RemoveDrawObject(z.DrawTag);
+                    if (!string.IsNullOrEmpty(z.LabelTag)) RemoveDrawObject(z.LabelTag);
+                }
                 _fvgZones.RemoveAt(i);
             }
         }
@@ -202,6 +208,11 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             for (int k = 0; k < Math.Min(FvgVisibleAbove, above.Count); k++) show.Add(above[k]);
             for (int k = 0; k < Math.Min(FvgVisibleBelow, below.Count); k++) show.Add(below[k]);
 
+            // Total volume across visible FVG zones for % label
+            double totalFvgVol = 0;
+            foreach (int idx in show) totalFvgVol += _fvgZones[idx].OBVolume;
+            if (totalFvgVol <= 0) totalFvgVol = 1;
+
             for (int i = 0; i < _fvgZones.Count; i++)
             {
                 Zone z          = _fvgZones[i];
@@ -209,15 +220,22 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
                 if (shouldShow)
                 {
-                    int barsBack = Math.Max(1, CurrentBar - z.StartBar);
+                    int    barsBack = Math.Max(1, CurrentBar - z.StartBar);
+                    double labelY   = z.Top - (z.Top - z.Bottom) * 0.2;
                     Draw.Rectangle(this, z.DrawTag, false, barsBack, z.Top, -500, z.Bottom,
                         Brushes.Transparent, z.Bull ? FvgBullColor : FvgBearColor, FvgOpacity);
+                    double pct  = z.OBVolume / totalFvgVol * 100.0;
+                    double volK = z.OBVolume / 1000.0;
+                    Draw.Text(this, z.LabelTag, true, $"FVG  {pct:F1}% ({volK:F1}K)", barsBack, labelY, 0,
+                        Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
+                        Brushes.Transparent, Brushes.Transparent, 0);
                     z.Visible    = true;
                     _fvgZones[i] = z;
                 }
                 else if (z.Visible)
                 {
                     RemoveDrawObject(z.DrawTag);
+                    if (!string.IsNullOrEmpty(z.LabelTag)) RemoveDrawObject(z.LabelTag);
                     z.Visible    = false;
                     _fvgZones[i] = z;
                 }
@@ -384,7 +402,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 });
                 Draw.Rectangle(this, bbTag, false, barsBack, z.Top, -500, z.Bottom,
                     Brushes.Transparent, bbBull ? BreakerBullColor : BreakerBearColor, BreakerOpacity);
-                Draw.Text(this, bbLbl, "BB", 0, (z.Top + z.Bottom) * 0.5, Brushes.White);
+                Draw.Text(this, bbLbl, true, "BB", barsBack, z.Top - (z.Top - z.Bottom) * 0.2, 0,
+                    Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
+                    Brushes.Transparent, Brushes.Transparent, 0);
             }
         }
 
