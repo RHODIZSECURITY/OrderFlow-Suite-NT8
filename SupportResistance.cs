@@ -40,7 +40,8 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
         private readonly List<SRZone> _levels = new List<SRZone>();
         private int    _donchOs;
-        private double _donchVal = double.NaN;
+        private double _donchVal    = double.NaN;
+        private int    _donchValBar = -1;   // bar index of the tracked extreme
         private int    _bullCount, _bearCount;
 
         protected override void OnStateChange()
@@ -75,7 +76,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             else if (State == State.DataLoaded)
             {
                 _levels.Clear();
-                _donchOs = 0; _donchVal = double.NaN;
+                _donchOs = 0; _donchVal = double.NaN; _donchValBar = -1;
                 _bullCount = 0; _bearCount = 0;
             }
         }
@@ -98,6 +99,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 double detPH = double.NaN, detPL = double.NaN;
                 int pivotOffset = 0;
 
+                int donchExtreme = -1;   // actual bar of the Donchian extreme
                 switch (DetectionMethod)
                 {
                     case SrDetectionMethod.Pivots:
@@ -107,7 +109,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                         break;
 
                     case SrDetectionMethod.Donchian:
-                        DonchianDetect(len, out detPH, out detPL);
+                        DonchianDetect(len, out detPH, out detPL, out donchExtreme);
                         break;
 
                     case SrDetectionMethod.CSID:
@@ -118,10 +120,15 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                         break;
                 }
 
+                // For Donchian, startBar = actual extreme bar (not detection bar)
+                int phStart = DetectionMethod == SrDetectionMethod.Donchian && donchExtreme >= 0
+                    ? donchExtreme : CurrentBar - pivotOffset;
+                int plStart = phStart;
+
                 if (!double.IsNaN(detPH))
-                    AddZone(detPH + breakBuf, detPH - zDepth, detPH, false, pivotOffset);
+                    AddZone(detPH + breakBuf, detPH - zDepth, detPH, false, phStart);
                 if (!double.IsNaN(detPL))
-                    AddZone(detPL + zDepth, detPL - breakBuf, detPL, true, pivotOffset);
+                    AddZone(detPL + zDepth, detPL - breakBuf, detPL, true, plStart);
 
                 // ── Update existing zones ────────────────────────────────────────
                 for (int i = _levels.Count - 1; i >= 0; i--)
@@ -189,14 +196,14 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
         }
 
         // ── Donchian — matches Pine Script reference logic ────────────────────────
-        // Tracks individual bar High[0]/Low[0] (not period max/min) for pivot value
-        private void DonchianDetect(int len, out double detPH, out double detPL)
+        // Tracks individual bar High[0]/Low[0]; returns bar index of actual extreme
+        private void DonchianDetect(int len, out double detPH, out double detPL, out int extremeBar)
         {
-            detPH = double.NaN; detPL = double.NaN;
+            detPH = double.NaN; detPL = double.NaN; extremeBar = -1;
             if (CurrentBar <= len) return;
 
-            double donchH = MAX(High, len)[0];
-            double donchL = MIN(Low,  len)[0];
+            double donchH  = MAX(High, len)[0];
+            double donchL  = MIN(Low,  len)[0];
             double pDonchH = MAX(High, len)[1];
             double pDonchL = MIN(Low,  len)[1];
 
@@ -205,21 +212,22 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             if (newDir != _donchOs && newDir != 0)
             {
                 // Direction flip → previous tracked extreme becomes a level
-                if (newDir ==  1 && !double.IsNaN(_donchVal)) detPL = _donchVal;
-                if (newDir == -1 && !double.IsNaN(_donchVal)) detPH = _donchVal;
-                _donchVal = newDir == 1 ? High[0] : Low[0];
-                _donchOs  = newDir;
+                if (newDir ==  1 && !double.IsNaN(_donchVal)) { detPL = _donchVal; extremeBar = _donchValBar; }
+                if (newDir == -1 && !double.IsNaN(_donchVal)) { detPH = _donchVal; extremeBar = _donchValBar; }
+                _donchVal    = newDir == 1 ? High[0] : Low[0];
+                _donchValBar = CurrentBar;
+                _donchOs     = newDir;
             }
             else
             {
-                // Same direction → track the new extreme using individual bar price
-                if (_donchOs ==  1 && High[0] >= _donchVal) _donchVal = High[0];
-                if (_donchOs == -1 && Low[0]  <= _donchVal) _donchVal = Low[0];
+                // Same direction → track new extreme using individual bar price
+                if (_donchOs ==  1 && High[0] >= _donchVal) { _donchVal = High[0]; _donchValBar = CurrentBar; }
+                if (_donchOs == -1 && Low[0]  <= _donchVal) { _donchVal = Low[0];  _donchValBar = CurrentBar; }
             }
         }
 
-        // ── Add zone ─────────────────────────────────────────────────────────────
-        private void AddZone(double top, double bot, double basePrice, bool isSupport, int pivotOffset)
+        // ── Add zone — startBar is the actual pivot/extreme bar index ─────────────
+        private void AddZone(double top, double bot, double basePrice, bool isSupport, int startBar)
         {
             for (int i = _levels.Count - 1; i >= 0; i--)
             {
@@ -267,7 +275,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 Top = top, Bot = bot, Base = basePrice,
                 IsSupport = isSupport, Mitigated = false, Hidden = false,
                 Strength = 1, Sweeps = 0,
-                StartBar = CurrentBar - pivotOffset,
+                StartBar = Math.Max(0, startBar),
                 Tag = tag, LblTag = tag + "_lbl"
             };
             _levels.Add(z);
@@ -296,8 +304,9 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             {
                 string lbl  = z.IsSupport ? "SUPPORT" : "RESISTANCE";
                 double yLbl = (z.Top + z.Bot) * 0.5;
-                Draw.Text(this, z.LblTag, true, lbl, ago, yLbl, 0,
-                    Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
+                // Label at barsAgo=0 (right/current edge, matches LuxAlgo text_halign=left on right side)
+                Draw.Text(this, z.LblTag, true, lbl, 0, yLbl, 0,
+                    Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Right,
                     Brushes.Transparent, Brushes.Transparent, 0);
             }
         }
