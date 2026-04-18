@@ -376,8 +376,10 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                     {
                         double pct  = z.OBVolume / totalVol * 100.0;
                         double volK = z.OBVolume / 1000.0;
-                        string lbl  = $"{pct:F1}% ({volK:F1}K)";
-                        Draw.Text(this, z.LabelTag, true, lbl, barsBack, (z.Top + z.Bottom) * 0.5, 0,
+                        string lbl  = $"OB  {pct:F1}% ({volK:F1}K)";
+                        // Anchor near top-left inside the zone (25% from top)
+                        double labelY = z.Top - (z.Top - z.Bottom) * 0.2;
+                        Draw.Text(this, z.LabelTag, true, lbl, barsBack, labelY, 0,
                             Brushes.White, new SimpleFont("Arial", 9), System.Windows.TextAlignment.Left,
                             Brushes.Transparent, Brushes.Transparent, 0);
                     }
