@@ -60,7 +60,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
 
                 ObEnabled = true;
                 PivotStrength = 3;
-                RangeMode = ObRangeMode.FullCandle;
+                RangeMode = ObRangeMode.BodyOnly;
                 OverlapMode = ObOverlapMode.Merge;
                 ObExtendBars = 180;
                 ObOpacity = 15;
@@ -168,7 +168,7 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
                 ObOpacity);
 
             if (ShowObLabels)
-                Draw.Text(this, lblTag, "OB", 0, (hi + lo) * 0.5, bullImpulse ? ObBullColor : ObBearColor);
+                Draw.Text(this, lblTag, "OB", 0, (hi + lo) * 0.5, Brushes.White);
         }
 
         // FVG mitigated when price closes INSIDE the gap — dim the zone and stop extending
@@ -200,7 +200,10 @@ namespace NinjaTrader.NinjaScript.Indicators.OrderFlow_Suite_RHODIZ
             for (int i = _obZones.Count - 1; i >= 0; i--)
             {
                 Zone z = _obZones[i];
-                bool broken = z.Bull ? Close[0] < z.Bottom : Close[0] > z.Top;
+                // Remove when price ENTERS the zone (Close crosses zone edge toward interior)
+                // Bull OB: Close < Top means price came back down into/through the zone
+                // Bear OB: Close > Bottom means price rallied back up into/through the zone
+                bool broken = z.Bull ? Close[0] < z.Top : Close[0] > z.Bottom;
                 if (!broken) continue;
 
                 RemoveDrawObject(z.DrawTag);
